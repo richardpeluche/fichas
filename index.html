@@ -676,7 +676,7 @@ input,textarea{font-family:inherit}
 /* ===== STAGE ===== */
 .stage{padding:4px 0 40px;display:flex;flex-direction:column;align-items:center;gap:28px}
 .sheet-wrap{width:100%;display:flex;justify-content:center;position:relative}
-.a4{width:794px;background:#fff;color:var(--text);position:relative;box-shadow:0 8px 40px rgba(0,0,0,.14);border-radius:4px;overflow:hidden;transform-origin:top center}
+.a4{width:794px;flex:0 0 auto;align-self:flex-start;background:#fff;color:var(--text);position:relative;box-shadow:0 8px 40px rgba(0,0,0,.14);border-radius:4px;overflow:hidden;transform-origin:top center}
 .ptag{position:absolute;top:-22px;left:2px;font-size:10.5px;font-weight:800;letter-spacing:.1em;color:var(--muted)}
 .del-sheet{position:absolute;top:-26px;right:0;background:#fff;color:#dc2626;border:1px solid #fca5a5;border-radius:7px;font-size:11px;font-weight:800;padding:4px 9px;cursor:pointer}
 
@@ -1123,7 +1123,7 @@ body.es-movil #btnWaImg, body.es-movil .solo-pc{display:none!important}
       </button>
     </div>
     <div class="home-foot">
-      <div class="row"><span class="ver" id="verBadge">v4.14.0</span><span class="st" id="storageSt"></span></div>
+      <div class="row"><span class="ver" id="verBadge">v4.14.1</span><span class="st" id="storageSt"></span></div>
       <div class="row"><span>Configuración de este equipo:</span>
       <button class="btn" id="btnCfgExport" type="button" title="Guarda en un archivo la configuración de este equipo: numeración, URL de conexión, remitente y logo, tema, historial de fichas y registro de envíos">💾 Respaldar configuración</button>
       <button class="btn" id="btnCfgImport" type="button" title="Carga un respaldo de configuración (.json) en este equipo">📂 Restaurar configuración</button></div>
@@ -1607,7 +1607,7 @@ try{
   const _w=document.getElementById("pdfWorkerSrc");
   pdfjsLib.GlobalWorkerOptions.workerSrc=URL.createObjectURL(new Blob([_w.textContent],{type:"text/javascript"}));
 }catch(e){ pdfjsLib.GlobalWorkerOptions.workerSrc=""; }
-const APP_VERSION="4.14.0";
+const APP_VERSION="4.14.1";
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
 
 /* ══════════════════════════════════
@@ -3546,6 +3546,7 @@ async function fichasImgExportar(){
   all.sort((a,b)=>(b.t||0)-(a.t||0));
   const hist = (typeof histLoad==='function') ? histLoad() : [];
   const pares = all.map(r => ({ idb:r, hist: hist.find(h=>String(h.ficha)===String(r.ficha)) || null }));
+  const sinCopia = hist.filter(h => !all.some(r => String(r.ficha)===String(h.ficha))).length;
   const tam = pares.map(p => { try{ return JSON.stringify(p).length; }catch(e){ return 0; } });
   const total = tam.reduce((a,b)=>a+b,0);
 
@@ -3572,7 +3573,13 @@ async function fichasImgExportar(){
   const z=((typeof getZona==='function'&&getZona())||''); 
   a.download='FICHAS_COMPLETAS_RICCHARY'+(z?'_'+z:'')+'_'+new Date().toISOString().slice(0,10)+'.json';
   document.body.appendChild(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(a.href),8000);
-  showToast('Respaldo de '+n+' fichas completas guardado ✔ ('+_MB(peso)+')');
+  showToast('Respaldo de '+n+' fichas completas ✔ ('+_MB(peso)+')'+
+    (sinCopia?' · '+sinCopia+' fichas viejas del historial no tienen imágenes guardadas':''));
+  if(sinCopia) setTimeout(()=>alert(sinCopia+' fichas del historial no llevan imágenes en el respaldo.\n\n'+
+    'No se perdieron aquí: se guardaron con una versión anterior de la app, que solo archivaba el texto de la ficha. '+
+    'Sus imágenes nunca llegaron a guardarse en ningún lado.\n\n'+
+    'Desde la 4.11 toda ficha que guardes queda con sus imágenes y anexos. Para recuperar una vieja: ábrela del '+
+    'historial, vuelve a cargar sus imágenes y guárdala.'), 700);
 }
 
 async function fichasImgRestaurar(file){

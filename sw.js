@@ -4,7 +4,7 @@
    - la app y los íconos: caché primero + revalidación en segundo plano
    - el Apps Script (otro dominio): SIEMPRE red, nunca caché — el dato debe ser el actual
    - al haber versión nueva, la app muestra la barra "Actualizar" y aquí se activa   */
-const VERSION = '4.14.0';
+const VERSION = '4.14.1';
 const CACHE   = 'ricchary-fichas-' + VERSION;
 const SHELL   = ['./', './manifest.json',
   './icon-192.png', './icon-512.png',
