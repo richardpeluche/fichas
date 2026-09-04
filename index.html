@@ -7,7 +7,7 @@
 <meta name="application-name" content="Fichas RICCHARY">
 <title>Fichas de Producción · RICCHARY</title>
 <link rel="manifest" href="./manifest.json">
-<link rel="apple-touch-icon" sizes="180x180" href="./iconos/apple-touch-icon-180.png">
+<link rel="apple-touch-icon" sizes="180x180" href="./apple-touch-icon-180.png">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Fichas RICCHARY">
@@ -976,6 +976,78 @@ body.es-movil #btnWaImg, body.es-movil .solo-pc{display:none!important}
 .dup-btn{display:block;margin-top:8px;width:100%;border:1px solid #d97706;background:#fff;color:#92400e;border-radius:7px;padding:8px;font-size:11.5px;font-weight:800;cursor:pointer}
 .dup-btn:hover{background:#FEF3C7}
 .dup-btn:active{transform:scale(.98)}
+
+/* ══════════════════════════════════════════════════════════════════
+   MÓVIL · la app se diseñó para PC (panel de 390px + hoja A4 de 794px).
+   En pantallas angostas se reordena a UNA columna y el banner se
+   compacta en filas. No cambia nada del PC ni de la impresión.
+══════════════════════════════════════════════════════════════════ */
+@media(max-width:760px){
+  body{padding:0}
+
+  /* ── Banner: de una fila rígida a filas apiladas ── */
+  /* En PC el banner va fijo arriba; en celular ocupa ~290px de alto y se
+     comería un tercio de la pantalla, así que se desplaza con la página. */
+  .logo-banner{position:static;flex-wrap:wrap;padding:8px 10px;gap:8px;row-gap:9px}
+  .banner-brand{flex:1 1 100%;order:1;flex-direction:row;align-items:baseline;gap:7px}
+  .banner-brand b{font-size:16px}
+  .banner-brand span{display:none}          /* el subtítulo largo ocupaba 3 líneas */
+  #btnHome{order:2;flex-shrink:0}
+  .theme-row{order:3;flex:1 1 100%;overflow-x:auto;padding-bottom:3px;gap:9px}
+  .theme-row .theme-lbl,.theme-row .tc-label{display:none}
+  .tc{width:27px;height:27px}
+  .view-seg{order:4;flex:1 1 100%;margin-right:0}
+  .vseg{flex:1;text-align:center;padding:11px 6px;font-size:13.5px}
+  .banner-actions{order:5;flex:1 1 100%;flex-wrap:wrap;gap:6px}
+  .banner-actions .btn{flex:1 1 auto;justify-content:center;font-size:12px;padding:10px 8px}
+
+  /* ── Cuerpo: una sola columna ──
+     minmax(0,1fr) y min-width:0 son imprescindibles: una columna 1fr normal
+     NO puede encogerse por debajo de su contenido, y la hoja A4 mide 794px
+     fijos, así que la columna se quedaba en 794px y todo se salía. ── */
+  #app{grid-template-columns:minmax(0,1fr);padding:10px 8px 90px;gap:12px}
+  #envioApp{grid-template-columns:minmax(0,1fr);padding:10px 8px 90px}
+  #app>*,#envioApp>*{min-width:0}
+  .stage{min-width:0}
+  .grid2{grid-template-columns:1fr}
+  .card{padding:13px;border-radius:10px}
+  .stage{gap:18px;padding:0 0 30px;min-width:0}
+
+  /* ── Toques cómodos. 16px en los campos evita que el navegador
+       haga zoom automático al enfocarlos (comportamiento de iOS/Android). ── */
+  .form-group input,.form-group select,.form-group textarea,
+  .ped-row input,.paste-box,.hist-search{font-size:16px;padding:10px 11px}
+  .btn{padding:10px 13px}
+  .uptile{padding:12px}
+  /* el campo de pedido + botón Verificar no entran a 360px: que el campo ceda */
+  .ped-row{flex-wrap:nowrap}
+  .ped-row input{min-width:0;flex:1 1 auto}
+  .ped-btn{flex-shrink:0;white-space:nowrap}
+  .drop-zone{padding:24px 14px}
+
+  /* ── Inicio ── */
+  .home-logo{font-size:31px}
+  .home-cards{gap:14px}
+  .home-card{padding:18px}
+
+  /* ── La guía mide 148 mm fijos (A5): se desplaza de lado en vez de
+       deformarse, así la captura de WhatsApp y la impresión no cambian. ── */
+  .env-stage{overflow-x:auto;padding-bottom:8px}
+  .env-hint{padding:0 4px}
+
+  /* ── Modales a pantalla casi completa ── */
+  .hist-modal{width:96vw;max-width:none;padding:16px}
+  .pop{width:92vw;max-width:340px}
+  #swBar{left:8px;right:8px;transform:none;justify-content:center}
+}
+
+/* Pantallas muy angostas (≈360 px) */
+@media(max-width:400px){
+  .banner-brand b{font-size:15px}
+  .banner-actions .btn{font-size:11.5px;padding:9px 6px;gap:4px}
+  #app{padding:8px 6px 90px}
+}
+
 </style>
 </head>
 <body>
@@ -1050,7 +1122,7 @@ body.es-movil #btnWaImg, body.es-movil .solo-pc{display:none!important}
       </button>
     </div>
     <div class="home-foot">
-      <div class="row"><span class="ver" id="verBadge">v4.12.0</span><span class="st" id="storageSt"></span></div>
+      <div class="row"><span class="ver" id="verBadge">v4.13.0</span><span class="st" id="storageSt"></span></div>
       <div class="row"><span>Configuración de este equipo:</span>
       <button class="btn" id="btnCfgExport" type="button" title="Guarda en un archivo la configuración de este equipo: numeración, URL de conexión, remitente y logo, tema, historial de fichas y registro de envíos">💾 Respaldar configuración</button>
       <button class="btn" id="btnCfgImport" type="button" title="Carga un respaldo de configuración (.json) en este equipo">📂 Restaurar configuración</button></div>
@@ -1531,7 +1603,7 @@ try{
   const _w=document.getElementById("pdfWorkerSrc");
   pdfjsLib.GlobalWorkerOptions.workerSrc=URL.createObjectURL(new Blob([_w.textContent],{type:"text/javascript"}));
 }catch(e){ pdfjsLib.GlobalWorkerOptions.workerSrc=""; }
-const APP_VERSION="4.12.0";
+const APP_VERSION="4.13.0";
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
 
 /* ══════════════════════════════════
