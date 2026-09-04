@@ -7,9 +7,9 @@
 const VERSION = '4.12.0';
 const CACHE   = 'ricchary-fichas-' + VERSION;
 const SHELL   = ['./', './manifest.json',
-  './iconos/icon-192.png', './iconos/icon-512.png',
-  './iconos/icon-192-maskable.png', './iconos/icon-512-maskable.png',
-  './iconos/apple-touch-icon-180.png', './iconos/favicon-32.png'];
+  './icon-192.png', './icon-512.png',
+  './icon-192-maskable.png', './icon-512-maskable.png',
+  './apple-touch-icon-180.png', './favicon-32.png'];
 
 /* addAll es todo-o-nada: si falta un archivo NO se instala nada.
    Por eso se guarda uno por uno y un fallo no tumba la instalación. */
