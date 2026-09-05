@@ -1078,8 +1078,9 @@ body.es-movil #btnWaImg, body.es-movil .solo-pc{display:none!important}
   <div class="banner-actions">
     <span id="fichaActions" style="display:contents">
       <button class="btn" id="btnNueva" title="Empieza una ficha en blanco (avanza el número)">🆕 Nueva</button>
-      <button class="btn" id="btnGuardar" title="Guarda como .json para retomar luego">💾 Guardar</button>
-      <button class="btn" id="btnCargar" title="Abre una ficha guardada (.json)">📂 Cargar</button>
+      <button class="btn" id="btnGuardar" title="Guarda la ficha en este equipo (historial, con imágenes y anexos) y en el historial central. No descarga ningún archivo">💾 Guardar</button>
+      <button class="btn" id="btnJson" title="Guarda igual que el botón Guardar y además descarga la ficha como archivo .json">⬇ .json</button>
+      <button class="btn" id="btnCargar" title="Abre una ficha desde un archivo .json">📂 Cargar</button>
       <button class="btn" id="btnHistorial" title="Fichas que ya exportaste">🗂️ Historial</button>
       <button class="btn primary" id="btnPDF">⬇&nbsp;Exportar PDF</button>
     </span>
@@ -1124,7 +1125,7 @@ body.es-movil #btnWaImg, body.es-movil .solo-pc{display:none!important}
       </button>
     </div>
     <div class="home-foot">
-      <div class="row"><span class="ver" id="verBadge">v4.15.1</span><span class="st" id="storageSt"></span></div>
+      <div class="row"><span class="ver" id="verBadge">v4.15.2</span><span class="st" id="storageSt"></span></div>
       <div class="row"><span>Respaldo de este equipo:</span>
       <button class="btn" id="btnRespExport" type="button" title="Guarda TODO en un archivo: configuración (numeración, conexión, remitente, logo, tema, historial y envíos) y las fichas con sus imágenes y anexos">💾 Respaldar fichas</button>
       <button class="btn" id="btnRespImport" type="button" title="Carga un respaldo (.json) en este equipo. Reconoce solo si el archivo trae configuración, fichas, o las dos cosas">📂 Restaurar fichas</button></div>
@@ -1605,7 +1606,7 @@ try{
   const _w=document.getElementById("pdfWorkerSrc");
   pdfjsLib.GlobalWorkerOptions.workerSrc=URL.createObjectURL(new Blob([_w.textContent],{type:"text/javascript"}));
 }catch(e){ pdfjsLib.GlobalWorkerOptions.workerSrc=""; }
-const APP_VERSION="4.15.1";
+const APP_VERSION="4.15.2";
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
 
 /* ══════════════════════════════════
@@ -2542,15 +2543,28 @@ $('#btnPDF').onclick=async()=>{
 /* ══════════════════════════════════
    12. GUARDAR / CARGAR
 ══════════════════════════════════ */
-$('#btnGuardar').onclick=async()=>{
-  if(!(await asegurarNumeroFicha())) return;
+/* Guardar NO descarga nada: registrarFicha() deja la ficha en el historial
+   (localStorage), la copia completa con imágenes y anexos en IndexedDB, y la
+   sube al historial central del Apps Script. El .json es un botón aparte. */
+async function guardarFichaInterno(){
+  if(!(await asegurarNumeroFicha())) return false;
   if(!numCentralOn()) confirmarOrden(S.orden);
   if(typeof registrarFicha==='function') registrarFicha();
+  return true;
+}
+$('#btnGuardar').onclick=async()=>{
+  if(!(await guardarFichaInterno())) return;
+  showToast('Ficha N°'+S.orden+' guardada en este equipo ✔  (Historial)');
+};
+$('#btnJson').onclick=async()=>{
+  if(!(await guardarFichaInterno())) return;
   const blob=new Blob([JSON.stringify({v:5,S,anexos})],{type:'application/json'});
   const a=document.createElement('a');
   a.href=URL.createObjectURL(blob);
   a.download=`ficha_${S.orden}_${(S.inst||'ficha').replace(/\s+/g,'_')}.json`;
-  a.click(); showToast('Ficha N°'+S.orden+' guardada ✔');
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(()=>URL.revokeObjectURL(a.href),4000);
+  showToast('Ficha N°'+S.orden+' guardada y descargada ✔');
 };
 $('#btnCargar').onclick=()=>$('#fileProyecto').click();
 $('#fileProyecto').onchange=async function(){
