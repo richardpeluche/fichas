@@ -4,12 +4,12 @@
    - la app y los íconos: caché primero + revalidación en segundo plano
    - el Apps Script (otro dominio): SIEMPRE red, nunca caché — el dato debe ser el actual
    - al haber versión nueva, la app muestra la barra "Actualizar" y aquí se activa   */
-const VERSION = '4.14.1';
+const VERSION = '4.15.0';
 const CACHE   = 'ricchary-fichas-' + VERSION;
 const SHELL   = ['./', './manifest.json',
-  './icon-192.png', './icon-512.png',
-  './icon-192-maskable.png', './icon-512-maskable.png',
-  './apple-touch-icon-180.png', './favicon-32.png'];
+  './iconos/icon-192.png', './iconos/icon-512.png',
+  './iconos/icon-192-maskable.png', './iconos/icon-512-maskable.png',
+  './iconos/apple-touch-icon-180.png', './iconos/favicon-32.png'];
 
 /* addAll es todo-o-nada: si falta un archivo NO se instala nada.
    Por eso se guarda uno por uno y un fallo no tumba la instalación. */

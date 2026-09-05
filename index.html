@@ -676,7 +676,7 @@ input,textarea{font-family:inherit}
 /* ===== STAGE ===== */
 .stage{padding:4px 0 40px;display:flex;flex-direction:column;align-items:center;gap:28px}
 .sheet-wrap{width:100%;display:flex;justify-content:center;position:relative}
-.a4{width:794px;flex:0 0 auto;align-self:flex-start;background:#fff;color:var(--text);position:relative;box-shadow:0 8px 40px rgba(0,0,0,.14);border-radius:4px;overflow:hidden;transform-origin:top center}
+.a4{width:794px;background:#fff;color:var(--text);position:relative;box-shadow:0 8px 40px rgba(0,0,0,.14);border-radius:4px;overflow:hidden;transform-origin:top center}
 .ptag{position:absolute;top:-22px;left:2px;font-size:10.5px;font-weight:800;letter-spacing:.1em;color:var(--muted)}
 .del-sheet{position:absolute;top:-26px;right:0;background:#fff;color:#dc2626;border:1px solid #fca5a5;border-radius:7px;font-size:11px;font-weight:800;padding:4px 9px;cursor:pointer}
 
@@ -1100,6 +1100,7 @@ body.es-movil #btnWaImg, body.es-movil .solo-pc{display:none!important}
 <input type="file" id="fileLogo" accept="image/*">
 <input type="file" id="fileConfig" accept=".json">
 <input type="file" id="fileFichasImg" accept=".json">
+<input type="file" id="fileRespaldo" accept=".json">
 
 
 <!-- ══════════ PANTALLA DE INICIO ══════════ -->
@@ -1123,13 +1124,10 @@ body.es-movil #btnWaImg, body.es-movil .solo-pc{display:none!important}
       </button>
     </div>
     <div class="home-foot">
-      <div class="row"><span class="ver" id="verBadge">v4.14.1</span><span class="st" id="storageSt"></span></div>
-      <div class="row"><span>Configuración de este equipo:</span>
-      <button class="btn" id="btnCfgExport" type="button" title="Guarda en un archivo la configuración de este equipo: numeración, URL de conexión, remitente y logo, tema, historial de fichas y registro de envíos">💾 Respaldar configuración</button>
-      <button class="btn" id="btnCfgImport" type="button" title="Carga un respaldo de configuración (.json) en este equipo">📂 Restaurar configuración</button></div>
-      <div class="row"><span>Fichas con imágenes y anexos:</span>
-      <button class="btn" id="btnImgExport" type="button" title="Guarda en un archivo las fichas completas de este equipo: imágenes del diseño y archivos anexos. Es un archivo pesado.">🖼 Respaldar fichas completas</button>
-      <button class="btn" id="btnImgImport" type="button" title="Carga en este equipo un respaldo de fichas completas (.json) con sus imágenes y anexos">📥 Restaurar fichas completas</button></div>
+      <div class="row"><span class="ver" id="verBadge">v4.15.0</span><span class="st" id="storageSt"></span></div>
+      <div class="row"><span>Respaldo de este equipo:</span>
+      <button class="btn" id="btnRespExport" type="button" title="Guarda TODO en un archivo: configuración (numeración, conexión, remitente, logo, tema, historial y envíos) y las fichas con sus imágenes y anexos">💾 Respaldar fichas</button>
+      <button class="btn" id="btnRespImport" type="button" title="Carga un respaldo (.json) en este equipo. Reconoce solo si el archivo trae configuración, fichas, o las dos cosas">📂 Restaurar fichas</button></div>
     </div>
   </div>
 </div>
@@ -1607,7 +1605,7 @@ try{
   const _w=document.getElementById("pdfWorkerSrc");
   pdfjsLib.GlobalWorkerOptions.workerSrc=URL.createObjectURL(new Blob([_w.textContent],{type:"text/javascript"}));
 }catch(e){ pdfjsLib.GlobalWorkerOptions.workerSrc=""; }
-const APP_VERSION="4.14.1";
+const APP_VERSION="4.15.0";
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
 
 /* ══════════════════════════════════
@@ -3546,7 +3544,6 @@ async function fichasImgExportar(){
   all.sort((a,b)=>(b.t||0)-(a.t||0));
   const hist = (typeof histLoad==='function') ? histLoad() : [];
   const pares = all.map(r => ({ idb:r, hist: hist.find(h=>String(h.ficha)===String(r.ficha)) || null }));
-  const sinCopia = hist.filter(h => !all.some(r => String(r.ficha)===String(h.ficha))).length;
   const tam = pares.map(p => { try{ return JSON.stringify(p).length; }catch(e){ return 0; } });
   const total = tam.reduce((a,b)=>a+b,0);
 
@@ -3573,13 +3570,7 @@ async function fichasImgExportar(){
   const z=((typeof getZona==='function'&&getZona())||''); 
   a.download='FICHAS_COMPLETAS_RICCHARY'+(z?'_'+z:'')+'_'+new Date().toISOString().slice(0,10)+'.json';
   document.body.appendChild(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(a.href),8000);
-  showToast('Respaldo de '+n+' fichas completas ✔ ('+_MB(peso)+')'+
-    (sinCopia?' · '+sinCopia+' fichas viejas del historial no tienen imágenes guardadas':''));
-  if(sinCopia) setTimeout(()=>alert(sinCopia+' fichas del historial no llevan imágenes en el respaldo.\n\n'+
-    'No se perdieron aquí: se guardaron con una versión anterior de la app, que solo archivaba el texto de la ficha. '+
-    'Sus imágenes nunca llegaron a guardarse en ningún lado.\n\n'+
-    'Desde la 4.11 toda ficha que guardes queda con sus imágenes y anexos. Para recuperar una vieja: ábrela del '+
-    'historial, vuelve a cargar sus imágenes y guárdala.'), 700);
+  showToast('Respaldo de '+n+' fichas completas guardado ✔ ('+_MB(peso)+')');
 }
 
 async function fichasImgRestaurar(file){
@@ -3610,13 +3601,112 @@ async function fichasImgRestaurar(file){
   setTimeout(()=>location.reload(),1200);
 }
 
-const _bie=$('#btnImgExport'); if(_bie) _bie.onclick=fichasImgExportar;
-const _bii=$('#btnImgImport'), _ffi=$('#fileFichasImg');
-if(_bii&&_ffi){ _bii.onclick=()=>_ffi.click(); _ffi.onchange=async function(){ if(this.files[0]) await fichasImgRestaurar(this.files[0]); this.value=''; }; }
+/* ---- RESPALDO UNIFICADO (un solo botón para cada cosa) ------------------
+   Antes había cuatro botones: configuración y "fichas completas" por separado,
+   y confundía. Ahora:
+     💾 Respaldar fichas  → un archivo con TODO (ajustes + fichas con imágenes)
+     📂 Restaurar fichas  → lee el archivo y reconoce SOLO qué trae
+   Sigue abriendo los respaldos ANTIGUOS de los dos tipos, para no dejar
+   inservibles los archivos ya guardados. */
 
-const _bce=$('#btnCfgExport'); if(_bce) _bce.onclick=cfgExportar;
-const _bci=$('#btnCfgImport'), _fcf=$('#fileConfig');
-if(_bci&&_fcf){ _bci.onclick=()=>_fcf.click(); _fcf.onchange=async function(){ if(this.files[0]) await cfgRestaurar(this.files[0]); this.value=''; }; }
+async function respaldoExportar(){
+  /* 1 · ajustes del equipo (todo lo que vive en localStorage con prefijo rch) */
+  const ls={};
+  for(let i=0;i<localStorage.length;i++){ const k=localStorage.key(i); if(k&&k.startsWith('rch')) ls[k]=localStorage.getItem(k); }
+
+  /* 2 · fichas con imágenes y anexos (viven en IndexedDB) */
+  let all=[];
+  try{ all=await idbAll('fichas'); }catch(e){ all=[]; }
+  all.sort((a,b)=>(b.t||0)-(a.t||0));
+  const hist = (typeof histLoad==='function') ? histLoad() : [];
+  const pares = all.map(r => ({ idb:r, hist: hist.find(h=>String(h.ficha)===String(r.ficha)) || null }));
+  const tam = pares.map(p => { try{ return JSON.stringify(p).length; }catch(e){ return 0; } });
+  const total = tam.reduce((a,b)=>a+b,0);
+
+  if(!Object.keys(ls).length && !pares.length){ showToast('Este equipo no tiene nada que respaldar todavía'); return; }
+
+  /* Si pesa demasiado, se respaldan las más recientes: un archivo enorme
+     suele fallar al abrirse, sobre todo en el celular. */
+  let n = pares.length, peso = total;
+  if(total > _LIM_IMG){
+    let acum=0, k=0;
+    while(k<pares.length && acum+tam[k] <= _LIM_IMG){ acum+=tam[k]; k++; }
+    if(!k){
+      if(!confirm('La ficha más reciente sola pesa '+_MB(tam[0])+', demasiado para un archivo.\n\n'+
+                  '¿Guardar solo los ajustes, sin las fichas con imágenes?')) return;
+    } else if(!confirm('Este equipo tiene '+pares.length+' fichas con imágenes ('+_MB(total)+').\n\n'+
+      'Un archivo tan pesado puede fallar al abrirse, sobre todo en el celular.\n\n'+
+      'Se respaldarán las '+k+' MÁS RECIENTES ('+_MB(acum)+') y TODOS los ajustes.\n'+
+      'Las demás fichas siguen guardadas en este equipo.\n\n¿Continuar?')) return;
+    n=k; peso=acum;
+  }
+
+  /* se arma por partes: un solo texto gigante puede tumbar la pestaña */
+  const zona=((typeof getZona==='function'&&getZona())||'');
+  const partes=['{"app":"ricchary-fichas-todo","version":"'+APP_VERSION+'","fecha":"'+new Date().toISOString()+
+                '","equipo":"'+zona+'","ls":'+JSON.stringify(ls)+',"fichas":['];
+  for(let i=0;i<n;i++){ partes.push((i?',':'')+JSON.stringify(pares[i])); }
+  partes.push(']}');
+  let blob; try{ blob=new Blob(partes,{type:'application/json'}); }
+  catch(e){ showToast('No se pudo armar el archivo: '+e.message); return; }
+
+  const a=document.createElement('a'); a.href=URL.createObjectURL(blob);
+  a.download='RESPALDO_FICHAS_RICCHARY'+(zona?'_'+zona:'')+'_'+new Date().toISOString().slice(0,10)+'.json';
+  document.body.appendChild(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(a.href),8000);
+  showToast('Respaldo guardado ✔ '+Object.keys(ls).length+' ajustes'+(n?' · '+n+' fichas ('+_MB(peso)+')':''));
+}
+
+async function respaldoRestaurar(file){
+  let d;
+  try{ d=JSON.parse(await file.text()); }
+  catch(e){ showToast('Archivo inválido o demasiado pesado para abrirlo en este equipo'); return; }
+
+  /* Reconoce los tres formatos: el nuevo combinado y los dos antiguos */
+  const tipo = d && d.app;
+  const traeLs     = !!(d && d.ls && Object.keys(d.ls).length);
+  const traeFichas = !!(d && Array.isArray(d.fichas) && d.fichas.length);
+  if(!d || (tipo!=='ricchary-fichas-todo' && tipo!=='ricchary-fichas' && tipo!=='ricchary-fichas-img') || (!traeLs && !traeFichas)){
+    showToast('Ese archivo no es un respaldo de Fichas RICCHARY'); return;
+  }
+
+  const cuando = d.fecha ? new Date(d.fecha).toLocaleString('es-EC') : '?';
+  const qué=[];
+  if(traeLs)     qué.push('• '+Object.keys(d.ls).length+' ajustes (numeración, conexión, remitente, historial…)');
+  if(traeFichas) qué.push('• '+d.fichas.length+' fichas con imágenes y anexos');
+  if(!confirm('¿Restaurar este respaldo?\n\nHecho el '+cuando+(d.equipo?' · zona '+d.equipo:'')+'\n\n'+qué.join('\n')+
+    '\n\n'+(traeLs?'Los ajustes REEMPLAZAN los de este equipo.\n':'')+
+    (traeFichas?'Las fichas se AGREGAN; si una ya existe aquí, la reemplaza la del respaldo.\n':'')+
+    '\nLa app se recargará al terminar.')) return;
+
+  /* 1 · ajustes */
+  if(traeLs){
+    try{ Object.entries(d.ls).forEach(([k,v])=>localStorage.setItem(k,v)); }
+    catch(e){ showToast('No se pudo escribir la configuración: '+e.message); return; }
+  }
+
+  /* 2 · fichas con imágenes */
+  let ok=0, err=0;
+  if(traeFichas){
+    const hist = (typeof histLoad==='function') ? histLoad() : [];
+    for(const p of d.fichas){
+      const rec = p && p.idb ? p.idb : p;            /* tolera archivos sin el par */
+      if(!rec || !rec.ficha){ err++; continue; }
+      try{ await idbPut('fichas', rec); ok++; }catch(e){ err++; continue; }
+      if(p && p.hist && p.hist.ficha){
+        const i = hist.findIndex(h=>String(h.ficha)===String(p.hist.ficha));
+        if(i>=0) hist[i]=p.hist; else hist.push(p.hist);
+      }
+    }
+    if(typeof histSaveArr==='function'){ try{ histSaveArr(hist); }catch(e){} }
+  }
+
+  showToast('Restaurado ✔ '+(traeLs?'ajustes':'')+(traeLs&&ok?' · ':'')+(ok?ok+' fichas':'')+(err?' · con problema '+err:'')+' · recargando…');
+  setTimeout(()=>location.reload(),1200);
+}
+
+const _bre=$('#btnRespExport'); if(_bre) _bre.onclick=respaldoExportar;
+const _bri=$('#btnRespImport'), _fre=$('#fileRespaldo');
+if(_bri&&_fre){ _bri.onclick=()=>_fre.click(); _fre.onchange=async function(){ if(this.files[0]) await respaldoRestaurar(this.files[0]); this.value=''; }; }
 
 /* ---- Compartir la imagen de la guía (Web Share API) ----
    Abre el menú "Compartir" del sistema con el PNG ya adjunto + texto: en Windows
