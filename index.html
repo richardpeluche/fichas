@@ -1125,7 +1125,7 @@ body.es-movil #btnWaImg, body.es-movil .solo-pc{display:none!important}
       </button>
     </div>
     <div class="home-foot">
-      <div class="row"><span class="ver" id="verBadge">v4.15.2</span><span class="st" id="storageSt"></span></div>
+      <div class="row"><span class="ver" id="verBadge">v4.16.0</span><span class="st" id="storageSt"></span></div>
       <div class="row"><span>Respaldo de este equipo:</span>
       <button class="btn" id="btnRespExport" type="button" title="Guarda TODO en un archivo: configuración (numeración, conexión, remitente, logo, tema, historial y envíos) y las fichas con sus imágenes y anexos">💾 Respaldar fichas</button>
       <button class="btn" id="btnRespImport" type="button" title="Carga un respaldo (.json) en este equipo. Reconoce solo si el archivo trae configuración, fichas, o las dos cosas">📂 Restaurar fichas</button></div>
@@ -1606,7 +1606,7 @@ try{
   const _w=document.getElementById("pdfWorkerSrc");
   pdfjsLib.GlobalWorkerOptions.workerSrc=URL.createObjectURL(new Blob([_w.textContent],{type:"text/javascript"}));
 }catch(e){ pdfjsLib.GlobalWorkerOptions.workerSrc=""; }
-const APP_VERSION="4.15.2";
+const APP_VERSION="4.16.0";
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
 
 /* ══════════════════════════════════
@@ -2680,6 +2680,9 @@ function registrarFicha(){
   idbPut("fichas",{ficha:reg.ficha,t:Date.now(),S:Object.assign({},S),anexos:anexos.slice()}).catch(()=>{});
   /* historial central: la misma ficha (sin imágenes) va a la hoja de Google */
   nubePost({accion:"fichaGuardar",reg:{ficha:reg.ficha,pedido:reg.pedido,cliente:reg.inst,titulo:reg.titulo,fecha:reg.fecha,zona:reg.zona,imagenes:reg.tuvoImg,t:reg.t,data:reg.data}});
+  /* imágenes y anexos a tu Drive, para que la ficha viaje completa */
+  if(typeof subirArchivosEnSegundoPlano==='function')
+    subirArchivosEnSegundoPlano(reg.ficha, S, anexos);
 }
 /* Reabrir una ficha desde el historial (restaura los datos; las imágenes se recargan) */
 async function abrirFichaHist(ficha){
@@ -2687,8 +2690,24 @@ async function abrirFichaHist(ficha){
   if(!rec||!rec.data||!rec.data.S){ showToast('Esa ficha del historial no tiene datos para reabrir'); return; }
   /* ¿hay copia completa (con imágenes y anexos) en IndexedDB? */
   let full=null; try{ full=await idbGet('fichas',String(ficha)); }catch(e){}
-  const conImg=!!(full&&full.S);
-  if(!confirm('¿Abrir la ficha N° '+ficha+'?\n\nSe reemplaza lo que tienes en pantalla.'+((rec.tuvoImg&&!conImg)?'\n\nOJO: esta ficha se guardó antes de la versión con imágenes en el historial; vuelve a cargarlas.':''))) return;
+  let conImg=!!(full&&full.S);
+  const puedeNube=(!conImg && rec.tuvoImg && typeof nubeActiva==='function' && nubeActiva());
+  if(!confirm('¿Abrir la ficha N° '+ficha+'?\n\nSe reemplaza lo que tienes en pantalla.'+
+     (puedeNube?'\n\nSus imágenes y anexos no están en este equipo: se buscarán en tu Drive.':'')+
+     ((rec.tuvoImg&&!conImg&&!puedeNube)?'\n\nOJO: las imágenes y anexos de esta ficha no están en este equipo; vuelve a cargarlas.':''))) return;
+  /* este equipo no tiene el contenido: se baja del Drive y queda guardado aquí */
+  if(puedeNube){
+    showOv('Bajando imágenes y anexos…');
+    try{
+      const d=await bajarArchivosFicha(ficha);
+      if(d&&d.S){
+        full={ficha:String(ficha),t:Date.now(),S:d.S,anexos:(d.anexos||[]).slice()};
+        conImg=true;
+        idbPut('fichas',full).catch(()=>{});
+      }
+    }catch(e){}
+    hideOv();
+  }
   Object.assign(S,conImg?full.S:rec.data.S);
   S.numAsignado = !!S.orden;
   if(conImg){ anexos=(full.anexos||[]).slice(); seq=Math.max(0,...anexos.map(a=>a.id||0)); }
@@ -2698,7 +2717,7 @@ async function abrirFichaHist(ficha){
   render(); renderAnexos(); cotSync(); cotRender();
   actualizarUIProd(); chequearDuplicado();
   $('#histOv').classList.remove('open');
-  showToast('Ficha N° '+ficha+' abierta'+(conImg?' (con imágenes y anexos) ✔':(rec.tuvoImg?' — recarga las imágenes':'')));
+  showToast('Ficha N° '+ficha+' abierta'+(conImg?' (con imágenes y anexos) ✔':(rec.tuvoImg?' — sus imágenes no están disponibles en este equipo':'')));
 }
 function chequearDuplicado(){
   const dup=$('#pedDup'); if(!dup) return;
@@ -3511,6 +3530,104 @@ async function idbAll(store){ const db=await idbOpen(); return new Promise((ok,n
   }
   if(st) st.textContent=txt;
 })();
+
+
+/* ══════════════════════════════════
+   18. IMÁGENES Y ANEXOS EN TU DRIVE
+   El historial central solo lleva el TEXTO de la ficha: en la hoja de Google
+   no caben las imágenes. Por eso una ficha abierta en otro equipo salía vacía.
+   Aquí el contenido completo (imágenes del diseño + anexos ya convertidos a
+   HTML) sube a una carpeta de TU Drive a través del mismo Apps Script, y se
+   baja al abrir la ficha en cualquier equipo.
+   Requiere el archivo FichasDrive.gs en el Apps Script.
+══════════════════════════════════ */
+const ARCH_TROZO   = 3000000;              /* caracteres por envío */
+const ARCH_PEND_KEY= 'rch_arch_pend_v1';   /* fichas cuyos adjuntos faltan por subir */
+
+/* GET legible contra el Apps Script (mismo patrón que fetchPedidos) */
+async function _archGet(params){
+  const url=getSyncUrl(); if(!url) throw new Error('sin url');
+  const sep=url.indexOf('?')>=0?'&':'?';
+  const q=Object.keys(params).map(k=>k+'='+encodeURIComponent(params[k])).join('&');
+  const r=await fetch(url+sep+q+'&_='+Date.now(),{cache:'no-store'});
+  return await r.json();
+}
+
+function archPend(){ try{ return JSON.parse(localStorage.getItem(ARCH_PEND_KEY))||[]; }catch(e){ return []; } }
+function archGuardarPend(a){ try{ localStorage.setItem(ARCH_PEND_KEY,JSON.stringify(a.slice(-100))); }catch(e){} }
+function archEncolar(ficha){
+  const f=String(ficha), q=archPend();
+  if(q.indexOf(f)<0){ q.push(f); archGuardarPend(q); }
+}
+function archDesencolar(ficha){
+  const f=String(ficha);
+  archGuardarPend(archPend().filter(x=>x!==f));
+}
+
+/* SUBIR: el POST al Apps Script va a ciegas (no-cors, no se puede leer la
+   respuesta), así que después se comprueba con un GET que sí es legible. */
+async function subirArchivosFicha(ficha, S2, anexos2){
+  if(!nubeActiva()) return false;
+  const txt=JSON.stringify({v:5,S:S2,anexos:anexos2||[]});
+  const total=Math.max(1,Math.ceil(txt.length/ARCH_TROZO));
+  try{
+    for(let i=0;i<total;i++){
+      await _nubeEnviar({accion:'fichaArchSubir',ficha:String(ficha),parte:i,total:total,
+                         b64:txt.slice(i*ARCH_TROZO,(i+1)*ARCH_TROZO)});
+    }
+  }catch(e){ archEncolar(ficha); return false; }
+  try{
+    const info=await _archGet({accion:'fichaArchInfo',ficha:String(ficha)});
+    const ok=!!(info&&info.ok&&info.partes===total);
+    if(ok) archDesencolar(ficha); else archEncolar(ficha);
+    return ok;
+  }catch(e){ archEncolar(ficha); return false; }
+}
+
+/* Sube en segundo plano, sin hacer esperar a quien guarda */
+function subirArchivosEnSegundoPlano(ficha, S2, anexos2){
+  if(!nubeActiva()) return;
+  if(!(S2 && (S2.img1||S2.img2||(anexos2&&anexos2.length)))) return;
+  archEncolar(ficha);
+  subirArchivosFicha(ficha,S2,anexos2).then(ok=>{
+    if(ok) showToast('☁ Imágenes y anexos guardados en tu Drive ✔');
+  }).catch(()=>{});
+}
+
+/* Reintenta lo que quedó pendiente (al abrir la app y al volver la conexión).
+   Los bytes se leen de IndexedDB, no de localStorage: no cabrían. */
+let _archFlushing=false;
+async function archFlush(){
+  if(!nubeActiva()||_archFlushing) return;
+  const q=archPend(); if(!q.length) return;
+  _archFlushing=true;
+  try{
+    for(const f of q.slice()){
+      let full=null; try{ full=await idbGet('fichas',String(f)); }catch(e){}
+      if(!full||!full.S){ archDesencolar(f); continue; }
+      const ok=await subirArchivosFicha(f,full.S,full.anexos||[]);
+      if(!ok) break;
+    }
+  } finally { _archFlushing=false; }
+}
+
+/* BAJAR el contenido completo de una ficha desde Drive */
+async function bajarArchivosFicha(ficha){
+  if(!nubeActiva()) return null;
+  let info;
+  try{ info=await _archGet({accion:'fichaArchInfo',ficha:String(ficha)}); }catch(e){ return null; }
+  if(!(info&&info.ok&&info.partes>0)) return null;
+  let txt='';
+  for(let i=0;i<info.partes;i++){
+    let r; try{ r=await _archGet({accion:'fichaArchBajar',ficha:String(ficha),parte:i}); }catch(e){ return null; }
+    if(!(r&&r.ok&&typeof r.b64==='string')) return null;
+    txt+=r.b64;
+  }
+  try{ const d=JSON.parse(txt); return (d&&d.S)?d:null; }catch(e){ return null; }
+}
+
+window.addEventListener('online', ()=>{ archFlush(); });
+setTimeout(archFlush, 4000);
 
 /* ---- Respaldo / restauración de la configuración del equipo ----
    Incluye TODO lo que vive en localStorage con prefijo "rch": numeración (rchordn),
