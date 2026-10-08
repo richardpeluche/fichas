@@ -1125,7 +1125,7 @@ body.es-movil #btnWaImg, body.es-movil .solo-pc{display:none!important}
       </button>
     </div>
     <div class="home-foot">
-      <div class="row"><span class="ver" id="verBadge">v4.16.0</span><span class="st" id="storageSt"></span></div>
+      <div class="row"><span class="ver" id="verBadge">v4.16.1</span><span class="st" id="storageSt"></span></div>
       <div class="row"><span>Respaldo de este equipo:</span>
       <button class="btn" id="btnRespExport" type="button" title="Guarda TODO en un archivo: configuración (numeración, conexión, remitente, logo, tema, historial y envíos) y las fichas con sus imágenes y anexos">💾 Respaldar fichas</button>
       <button class="btn" id="btnRespImport" type="button" title="Carga un respaldo (.json) en este equipo. Reconoce solo si el archivo trae configuración, fichas, o las dos cosas">📂 Restaurar fichas</button></div>
@@ -1606,14 +1606,30 @@ try{
   const _w=document.getElementById("pdfWorkerSrc");
   pdfjsLib.GlobalWorkerOptions.workerSrc=URL.createObjectURL(new Blob([_w.textContent],{type:"text/javascript"}));
 }catch(e){ pdfjsLib.GlobalWorkerOptions.workerSrc=""; }
-const APP_VERSION="4.16.0";
+const APP_VERSION="4.16.1";
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
 
 /* ══════════════════════════════════
    1. NUMERACIÓN AUTOMÁTICA
 ══════════════════════════════════ */
+/* Número más alto que ya existe en el historial (este equipo + lo bajado de
+   la nube). Un contador atrasado —p. ej. tras restaurar un respaldo viejo—
+   ya no puede volver a entregar un número usado. */
+function maxFichaHist(){
+  let m=0;
+  try{ (histLoad()||[]).forEach(x=>{ const s=String(x.ficha||'').trim();
+    if(/^\d+$/.test(s)){ const n=parseInt(s,10); if(n>m) m=n; } }); }catch(e){}
+  return m;
+}
 function getNextOrden(){
-  return String(parseInt(localStorage.getItem('rchordn')||'100',10)+1).padStart(3,'0');
+  const c=parseInt(localStorage.getItem('rchordn')||'100',10);
+  return String(Math.max(isNaN(c)?100:c, maxFichaHist())+1).padStart(3,'0');
+}
+/* Mes actual en el formato de la ficha: OCTUBRE/2026 (sin día) */
+function mesActualTxt(){
+  const d=new Date();
+  return ['ENERO','FEBRERO','MARZO','ABRIL','MAYO','JUNIO','JULIO','AGOSTO',
+          'SEPTIEMBRE','OCTUBRE','NOVIEMBRE','DICIEMBRE'][d.getMonth()]+'/'+d.getFullYear();
 }
 function confirmarOrden(n){
   const v=parseInt(n,10), s=parseInt(localStorage.getItem('rchordn')||'100',10);
@@ -1915,7 +1931,7 @@ function getZona(){ return (localStorage.getItem(ZONA_KEY)||'').trim(); }
 function syncOrdenInput(){ const oi=$('#inputOrden'); if(oi) oi.value=S.orden||''; render(); }
 
 /* Garantiza que la ficha tenga número ANTES de guardar/exportar */
-async function asegurarNumeroFicha(){
+async function _asegurarNumeroBase(){
   if(!numCentralOn()) return true;                 // modo local: sin cambios
   if(S.numAsignado && S.orden) return true;        // ya tiene número esta ficha
   const url=getSyncUrl();
@@ -1924,7 +1940,15 @@ async function asegurarNumeroFicha(){
       const sep=url.indexOf('?')>=0?'&':'?';
       const r=await fetch(url+sep+'accion=fichaNext&_='+Date.now(),{cache:'no-store'});
       const j=await r.json();
-      if(j && j.ok && j.ficha){ S.orden=String(j.ficha); S.numAsignado=true; S.numProvisional=false; syncOrdenInput(); return true; }
+      if(j && j.ok && j.ficha){
+        let n=String(j.ficha); const mh=maxFichaHist();
+        /* el contador central quedó atrás de lo que ya existe: se corrige */
+        if(/^\d+$/.test(n) && parseInt(n,10)<=mh){
+          n=String(mh+1).padStart(3,'0');
+          try{ await fetch(url+sep+'accion=fichaSet&valor='+parseInt(n,10)+'&_='+Date.now(),{cache:'no-store'}); }catch(e){}
+        }
+        S.orden=n; S.numAsignado=true; S.numProvisional=false; syncOrdenInput(); return true;
+      }
     }catch(e){}
   }
   /* Respaldo sin internet: número provisional con el código de zona */
@@ -1938,6 +1962,31 @@ async function asegurarNumeroFicha(){
   }
   alert('No se pudo obtener el N° de ficha central (sin internet).\n\n• Reintenta con conexión, o\n• Configura un "Código de zona" en la ficha (⚙ Conexión con mi sistema) para trabajar sin internet.');
   return false;
+}
+
+/* Guardar y Exportar pasan por aquí: primero se asegura el número y luego
+   se comprueba que ese número no sea de OTRA ficha. Solo se puede escribir
+   encima de una ficha si fue esa misma la que se abrió. */
+async function asegurarNumeroFicha(){
+  if(!(await _asegurarNumeroBase())) return false;
+  const n=String(S.orden||'').trim();
+  if(!n) return true;
+  if(S._abiertaDe && String(S._abiertaDe)===n) return true;
+  let otra=null; try{ otra=histLoad().find(x=>String(x.ficha)===n); }catch(e){}
+  if(!otra) return true;
+  const libre=getNextOrden();
+  const desc=[otra.pedido?('pedido '+otra.pedido):'', otra.inst||'', otra.titulo||''].filter(Boolean).join(' · ');
+  if(!confirm('⚠ El N° de ficha '+n+' ya pertenece a otra ficha:\n'+(desc||'(sin datos)')+
+     '\n\nSi guardas con ese número, la REEMPLAZAS.\n\n'+
+     'Aceptar = usar el N° libre '+libre+' (recomendado)\nCancelar = no guardar todavía')) return false;
+  S.orden=libre; S.numAsignado=true; syncOrdenInput();
+  if(numCentralOn()){
+    const url=getSyncUrl();
+    if(url){ try{ const sep=url.indexOf('?')>=0?'&':'?';
+      await fetch(url+sep+'accion=fichaSet&valor='+parseInt(libre,10)+'&_='+Date.now(),{cache:'no-store'}); }catch(e){} }
+  }
+  showToast('Ficha guardada con el N° '+libre);
+  return true;
 }
 
 /* UI de configuración de numeración central */
@@ -2577,6 +2626,7 @@ $('#fileProyecto').onchange=async function(){
     /* fichas guardadas antes de esta versión: respetar su nombre de color (modo manual) */
     S.colorNombreAuto = (d.S && d.S.colorNombreAuto!==undefined) ? d.S.colorNombreAuto : false;
     S.numAsignado = !!S.orden;   /* una ficha cargada ya tiene su número: no pedir otro */
+    S._abiertaDe = S.orden ? String(S.orden) : null;
     if(d.anexos){ anexos=d.anexos; seq=Math.max(0,...anexos.map(a=>a.id||0)); }
     $$('[data-k]').forEach(inp=>{ const v=S[inp.dataset.k]; if(v!=null) inp.value=v; });
     /* restaurar estado forro */
@@ -2624,11 +2674,16 @@ function refrescarInputs(){
 /* ---- NUEVA FICHA (en blanco, avanza el número) ---- */
 function nuevaFicha(){
   if(!confirm('¿Empezar una ficha NUEVA en blanco?\n\nSe limpian todos los campos. Si ya exportaste o guardaste la ficha actual, no se pierde.')) return;
+  fichaEnBlanco(false);
+}
+/* Deja la ficha vacía. Lo usan "Nueva" y el arranque de la app, para que
+   nunca quede cargada la ficha de ejemplo ni la de otro pedido. */
+function fichaEnBlanco(silencioso){
   /* NO se gasta el número aquí: solo Guardar o Exportar consumen el número.
      Así, si esta ficha no se guardó, su número se reutiliza y NO se salta. */
   const nuevo=getNextOrden();
   Object.assign(S,{
-    titulo:'', inst:'', pedido:'', orden:nuevo, entrega:'',
+    titulo:'', inst:'', pedido:'', orden:nuevo, entrega:mesActualTxt(),
     material:'', tecnica:'', operador:'', prendas:'',
     colorNombre:'', colorNombreAuto:true,
     forroLabel:'Diseño forro interno', forroLleva:true,
@@ -2636,12 +2691,12 @@ function nuevaFicha(){
     cot:{cant:24,punt:8000,pos:1,dig:1,desc:0,extra:0}
   });
   anexos=[]; seq=0;
-  S.numAsignado=false;
+  S.numAsignado=false; S._abiertaDe=null;
   if(typeof numCentralOn==='function' && numCentralOn()){ S.orden=''; }
   refrescarInputs(); setForro(true);
   render(); renderAnexos(); cotSync(); cotRender();
   pedClear(); actualizarUIProd(); chequearDuplicado();
-  showToast(S.orden?('Ficha N° '+S.orden+' — en blanco ✔'):'Ficha nueva — el N° se asigna al guardar');
+  if(!silencioso) showToast(S.orden?('Ficha N° '+S.orden+' — en blanco ✔'):'Ficha nueva — el N° se asigna al guardar');
 }
 const _bN=$('#btnNueva'); if(_bN) _bN.onclick=nuevaFicha;
 
@@ -2676,6 +2731,7 @@ function registrarFicha(){
   const i=arr.findIndex(x=>x.ficha===reg.ficha);
   if(i>=0) arr[i]=reg; else arr.push(reg);
   histSaveArr(arr);
+  S._abiertaDe=reg.ficha;   /* ya es esta ficha: volver a guardarla no es un choque */
   /* copia COMPLETA (con imágenes y anexos) en IndexedDB: no cabe en localStorage */
   idbPut("fichas",{ficha:reg.ficha,t:Date.now(),S:Object.assign({},S),anexos:anexos.slice()}).catch(()=>{});
   /* historial central: la misma ficha (sin imágenes) va a la hoja de Google */
@@ -2710,6 +2766,7 @@ async function abrirFichaHist(ficha){
   }
   Object.assign(S,conImg?full.S:rec.data.S);
   S.numAsignado = !!S.orden;
+  S._abiertaDe = String(ficha);
   if(conImg){ anexos=(full.anexos||[]).slice(); seq=Math.max(0,...anexos.map(a=>a.id||0)); }
   else { S.img1=null; S.img2=null; anexos=[]; seq=0; }
   S.cot=Object.assign({cant:24,punt:8000,pos:1,dig:1,desc:0,extra:0},rec.data.S.cot||{});
@@ -2736,7 +2793,7 @@ function chequearDuplicado(){
 function reemplazarFicha(num){
   num=String(num);
   if(!confirm('¿Continuar con la ficha N° '+num+' (la que ya existe para este pedido) en vez de crear una nueva?\n\nEsta ficha pasará a ser la N° '+num+'; al guardar o exportar se actualiza esa misma, sin duplicar.')) return;
-  S.orden=num;
+  S.orden=num; S._abiertaDe=num;
   const oi=$('#inputOrden'); if(oi) oi.value=num;
   render(); chequearDuplicado();
   showToast('Ahora editas la ficha N° '+num+' ✔');
@@ -4005,7 +4062,8 @@ renderEnvio();
 appReady=true;
 /* historial central: subir pendientes y bajar lo de otros equipos (silencioso) */
 if(nubeActiva()){ nubeFlush().then(()=>nubeSync()); }
-/* arranca siempre en limpio (sin restaurar borrador ni pedirlo) */
+/* arranca siempre en limpio: ficha vacía, entrega en el mes actual */
+try{ fichaEnBlanco(true); }catch(e){ console.error(e); }
 /* Mostrar la pantalla de inicio al abrir */
 if(typeof setView==='function') setView('home');
 </script>
