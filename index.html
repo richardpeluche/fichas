@@ -1048,6 +1048,7 @@ body.es-movil #btnWaImg, body.es-movil .solo-pc{display:none!important}
   #app{padding:8px 6px 90px}
 }
 
+#cardCotizador.cot-al-final{margin:0 0 24px}
 </style>
 </head>
 <body>
@@ -1080,8 +1081,9 @@ body.es-movil #btnWaImg, body.es-movil .solo-pc{display:none!important}
       <button class="btn" id="btnNueva" title="Empieza una ficha en blanco (avanza el número)">🆕 Nueva</button>
       <button class="btn" id="btnGuardar" title="Guarda la ficha en este equipo (historial, con imágenes y anexos) y en el historial central. No descarga ningún archivo">💾 Guardar</button>
       <button class="btn" id="btnJson" title="Guarda igual que el botón Guardar y además descarga la ficha como archivo .json">⬇ .json</button>
-      <button class="btn" id="btnCargar" title="Abre una ficha desde un archivo .json">📂 Cargar</button>
+      <button class="btn" id="btnCargar" title="Abre una ficha desde un archivo .json" style="display:none">📂 Cargar</button>
       <button class="btn" id="btnHistorial" title="Fichas que ya exportaste">🗂️ Historial</button>
+      <button class="btn" id="btnWaFicha" title="Envía la ficha como imagen por WhatsApp. En el celular manda todas las hojas (ficha y anexos); en la PC copia la ficha para pegarla">📤 WhatsApp</button>
       <button class="btn primary" id="btnPDF">⬇&nbsp;Exportar PDF</button>
     </span>
     <span id="envioActions" style="display:none">
@@ -1125,7 +1127,7 @@ body.es-movil #btnWaImg, body.es-movil .solo-pc{display:none!important}
       </button>
     </div>
     <div class="home-foot">
-      <div class="row"><span class="ver" id="verBadge">v4.16.1</span><span class="st" id="storageSt"></span></div>
+      <div class="row"><span class="ver" id="verBadge">v4.16.2</span><span class="st" id="storageSt"></span></div>
       <div class="row"><span>Respaldo de este equipo:</span>
       <button class="btn" id="btnRespExport" type="button" title="Guarda TODO en un archivo: configuración (numeración, conexión, remitente, logo, tema, historial y envíos) y las fichas con sus imágenes y anexos">💾 Respaldar fichas</button>
       <button class="btn" id="btnRespImport" type="button" title="Carga un respaldo (.json) en este equipo. Reconoce solo si el archivo trae configuración, fichas, o las dos cosas">📂 Restaurar fichas</button></div>
@@ -1606,7 +1608,7 @@ try{
   const _w=document.getElementById("pdfWorkerSrc");
   pdfjsLib.GlobalWorkerOptions.workerSrc=URL.createObjectURL(new Blob([_w.textContent],{type:"text/javascript"}));
 }catch(e){ pdfjsLib.GlobalWorkerOptions.workerSrc=""; }
-const APP_VERSION="4.16.1";
+const APP_VERSION="4.16.2";
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
 
 /* ══════════════════════════════════
@@ -3922,6 +3924,85 @@ async function compartirGuiaImg(){
   try{ puede=!!(navigator.share&&navigator.canShare&&navigator.canShare({files:[new File([new Blob(['x'])],'x.png',{type:'image/png'})]})); }catch(e){}
   if(puede){ b.style.display='flex'; b.onclick=compartirGuiaImg; }
 })();
+
+
+/* ══════════════════════════════════
+   19. ENVIAR LA FICHA POR WHATSAPP (imagen)
+   Mismo criterio que las guías: en el celular se comparten TODAS las hojas
+   (ficha + anexos) con el menú Compartir; en la PC se copia la hoja de la
+   ficha al portapapeles, se abre WhatsApp y se pega con Ctrl+V.
+══════════════════════════════════ */
+async function _capturarHoja(sh){
+  const t=sh.style.transform; sh.style.transform='none';
+  await new Promise(r=>setTimeout(r,50));
+  try{
+    return await html2canvas(sh,{scale:2,useCORS:true,backgroundColor:'#ffffff',logging:false,
+      ignoreElements:el=>el.classList?.contains('ptag')||el.classList?.contains('del-sheet')||el.id==='anexoPlaceholder'});
+  } finally { sh.style.transform=t; }
+}
+function _hojasFicha(){ return [$('#sheet1'), ...$$('.a4.anexo-extra')].filter(Boolean); }
+function fichaTextoWa(){
+  const l=['*Ficha de producción N° '+(S.orden||'—')+'* · RICCHARY'];
+  if(S.pedido) l.push('Pedido N° '+S.pedido);
+  if(S.inst) l.push(S.inst);
+  if(S.titulo) l.push(S.titulo);
+  if(S.prendas) l.push('Prendas: '+S.prendas);
+  if(S.entrega) l.push('Entrega: '+S.entrega);
+  return l.join('\n');
+}
+async function enviarFichaWhatsApp(){
+  if(!(S.titulo||S.inst||S.pedido)){ showToast('La ficha está vacía: llénala antes de enviarla'); return; }
+  const base='FICHA_'+(S.orden||'sin_numero');
+  const txt=fichaTextoWa();
+
+  /* CELULAR: todas las hojas de una vez por el menú Compartir */
+  if(ES_MOVIL && navigator.share){
+    showOv('Preparando imágenes de la ficha…');
+    const files=[];
+    try{
+      const hojas=_hojasFicha();
+      for(let i=0;i<hojas.length;i++){
+        $('#ovTxt') && ($('#ovTxt').textContent='Hoja '+(i+1)+'/'+hojas.length+'…');
+        const c=await _capturarHoja(hojas[i]);
+        const b=await new Promise(r=>c.toBlob(x=>r(x),'image/jpeg',0.9));
+        if(b) files.push(new File([b], base+(hojas.length>1?'_'+(i+1):'')+'.jpg',{type:'image/jpeg'}));
+      }
+    }catch(e){}
+    hideOv();
+    if(!files.length){ showToast('No se pudo generar la imagen de la ficha'); return; }
+    let puede=false; try{ puede=navigator.canShare({files}); }catch(e){}
+    if(!puede){ showToast('Este celular no permite compartir imágenes desde la app'); return; }
+    try{ await navigator.share({files,title:base,text:txt}); showToast('Ficha compartida ✔ ('+files.length+' '+(files.length>1?'hojas':'hoja')+')'); }
+    catch(e){ if(e&&e.name!=='AbortError') showToast('No se pudo compartir: '+e.message); }
+    return;
+  }
+
+  /* PC: copiar la ficha y abrir WhatsApp. ClipboardItem recibe una PROMESA
+     para no perder el "gesto del usuario" mientras se dibuja la imagen. */
+  showOv('Preparando imagen de la ficha…');
+  const pPng=(async()=>{ const c=await _capturarHoja($('#sheet1'));
+    return await new Promise(r=>c.toBlob(x=>r(x),'image/png')); })();
+  let copiada=false;
+  try{ await navigator.clipboard.write([new ClipboardItem({'image/png':pPng})]); copiada=true; }catch(e){}
+  if(!copiada){
+    try{ const b=await pPng; const a=document.createElement('a'); a.href=URL.createObjectURL(b);
+      a.download=base+'.png'; document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(()=>URL.revokeObjectURL(a.href),4000); }catch(e){}
+  }
+  hideOv();
+  abrirWhatsApp('', txt);
+  const extra=$$('.a4.anexo-extra').length?' · los anexos van en el PDF':'';
+  showToast(copiada?('Ficha copiada · en WhatsApp elige el chat y pega con Ctrl+V'+extra)
+                   :('Se descargó la imagen de la ficha · adjúntala en WhatsApp'+extra));
+}
+const _bWf=$('#btnWaFicha'); if(_bWf) _bWf.onclick=enviarFichaWhatsApp;
+
+/* Solo en celular: el cotizador interno va al final, después de la vista
+   previa, para que lo primero sea llenar la ficha y verla. */
+if(ES_MOVIL){
+  const c=$('#cardCotizador'), st=$('#stage');
+  if(c&&st){ st.after(c); c.classList.add('cot-al-final'); }
+}
 
 /* ---- Semilla PWA: registrar service worker SOLO si la app está en línea (https)
    y existe ./sw.js. En modo archivo local (file://) no hace nada. ---- */
