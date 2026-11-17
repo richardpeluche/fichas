@@ -722,8 +722,13 @@ input,textarea{font-family:inherit}
 .a4-sec-head .sl{font-size:10.5px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:var(--brand);white-space:nowrap}
 .a4-sec-head::after{content:'';flex:1;height:2px;background:var(--brand-l)}
 .imgbox{border:1.5px solid var(--border);border-radius:12px;overflow:hidden;display:flex;align-items:center;justify-content:center;background:var(--bg);cursor:pointer;position:relative}
-.imgbox.main{height:400px;margin-bottom:20px}
-.imgbox.lining{height:270px}
+.imgbox.main{height:350px;margin-bottom:20px}
+.imgbox.lining{height:240px}
+.a4-conf{margin:14px 40px 0}
+.a4-conf .ch{font-size:9.5px;font-weight:800;letter-spacing:.14em;text-transform:uppercase;color:var(--brand);margin-bottom:5px}
+.a4-conf table{width:100%;border-collapse:collapse;table-layout:fixed}
+.a4-conf th{font-size:8.5px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);text-align:left;padding:3px 7px;border:1px solid var(--border);background:var(--bg)}
+.a4-conf td{height:30px;border:1px solid var(--border)}
 .imgbox img.user{width:100%;height:100%;object-fit:contain}
 .imgbox .iph{text-align:center;color:#9ca3af;font-weight:700;font-size:13px;line-height:1.8}
 .imgbox .iph b{display:block;font-size:14px;color:#6b7280;margin-bottom:4px}
@@ -1127,7 +1132,7 @@ body.es-movil #btnWaImg, body.es-movil .solo-pc{display:none!important}
       </button>
     </div>
     <div class="home-foot">
-      <div class="row"><span class="ver" id="verBadge">v4.16.2</span><span class="st" id="storageSt"></span></div>
+      <div class="row"><span class="ver" id="verBadge">v4.16.3</span><span class="st" id="storageSt"></span></div>
       <div class="row"><span>Respaldo de este equipo:</span>
       <button class="btn" id="btnRespExport" type="button" title="Guarda TODO en un archivo: configuración (numeración, conexión, remitente, logo, tema, historial y envíos) y las fichas con sus imágenes y anexos">💾 Respaldar fichas</button>
       <button class="btn" id="btnRespImport" type="button" title="Carga un respaldo (.json) en este equipo. Reconoce solo si el archivo trae configuración, fichas, o las dos cosas">📂 Restaurar fichas</button></div>
@@ -1380,6 +1385,12 @@ body.es-movil #btnWaImg, body.es-movil .solo-pc{display:none!important}
         <div class="imgbox lining" id="boxImg2"><div class="iph"><b>Forro interno</b>Tocar aquí o cargar desde el panel</div></div>
       </div>
 
+      <div class="a4-conf">
+        <div class="ch">Control de confección</div>
+        <table><tr><th>Precio c/u</th><th>Total</th><th>Abono · fecha</th><th>Abono · fecha</th><th>Abono · fecha</th><th>Saldo</th></tr>
+        <tr><td></td><td></td><td></td><td></td><td></td><td></td></tr></table>
+      </div>
+
       <div class="a4-footer">
         <span class="wm">RICCHARY</span>
         <span class="sp"></span>
@@ -1608,7 +1619,7 @@ try{
   const _w=document.getElementById("pdfWorkerSrc");
   pdfjsLib.GlobalWorkerOptions.workerSrc=URL.createObjectURL(new Blob([_w.textContent],{type:"text/javascript"}));
 }catch(e){ pdfjsLib.GlobalWorkerOptions.workerSrc=""; }
-const APP_VERSION="4.16.2";
+const APP_VERSION="4.16.3";
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
 
 /* ══════════════════════════════════
