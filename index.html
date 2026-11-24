@@ -1099,6 +1099,7 @@ body.es-movil #btnWaImg, body.es-movil .solo-pc{display:none!important}
       <button class="btn" id="btnCargar" title="Abre una ficha desde un archivo .json" style="display:none">📂 Cargar</button>
       <button class="btn" id="btnHistorial" title="Fichas que ya exportaste">🗂️ Historial</button>
       <button class="btn" id="btnWaFicha" title="Envía la ficha como imagen por WhatsApp. En el celular manda todas las hojas (ficha y anexos); en la PC copia la ficha para pegarla">📤 WhatsApp</button>
+      <button class="btn" id="btnPdfTaller" title="Arma el PDF de la ficha y lo envía por WhatsApp al taller (número en Inicio → ⚙ Configuración)">🧵 PDF al taller</button>
       <button class="btn primary" id="btnPDF">⬇&nbsp;Exportar PDF</button>
     </span>
     <span id="envioActions" style="display:none">
@@ -1142,7 +1143,7 @@ body.es-movil #btnWaImg, body.es-movil .solo-pc{display:none!important}
       </button>
     </div>
     <div class="home-foot">
-      <div class="row"><span class="ver" id="verBadge">v4.18.0</span><span class="st" id="storageSt"></span></div>
+      <div class="row"><span class="ver" id="verBadge">v4.19.0</span><span class="st" id="storageSt"></span></div>
       <div class="row"><button class="btn" id="btnCfg" type="button">⚙ Configuración</button></div>
     </div>
   </div>
@@ -1613,6 +1614,14 @@ body.es-movil #btnWaImg, body.es-movil .solo-pc{display:none!important}
           </div>
     </div>
 
+    <div class="cfg-sec ped-cfg">
+      <div class="cfg-t">Contacto del taller</div>
+      <div class="cfg-r">WhatsApp de quien confecciona. Con el botón <b>🧵 PDF al taller</b> de la ficha le envías el PDF a ese número.</div>
+      <input type="text" id="inputTallerNombre" placeholder="Nombre (opcional) · ej. Sra. Rosa" autocomplete="off">
+      <input type="tel" id="inputTallerWa" placeholder="WhatsApp · ej. 0991234567" inputmode="tel" autocomplete="off">
+      <div class="hint" id="tallerWaHint"></div>
+    </div>
+
     <div class="cfg-sec">
       <div class="cfg-t">Respaldo</div>
       <div class="cfg-r"><b>Respaldar</b> descarga UN archivo con todo: configuración, historial y todas las fichas con sus imágenes y anexos. <b>Restaurar</b> lo carga en otro equipo o después de borrar datos.</div>
@@ -1661,7 +1670,7 @@ try{
   const _w=document.getElementById("pdfWorkerSrc");
   pdfjsLib.GlobalWorkerOptions.workerSrc=URL.createObjectURL(new Blob([_w.textContent],{type:"text/javascript"}));
 }catch(e){ pdfjsLib.GlobalWorkerOptions.workerSrc=""; }
-const APP_VERSION="4.18.0";
+const APP_VERSION="4.19.0";
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
 
 /* ══════════════════════════════════
@@ -2586,11 +2595,9 @@ function esRebanadaBlanca(ctx,w,h){
     return (noBlancos/total)<0.004;
   }catch(e){ return false; }
 }
-$('#btnPDF').onclick=async()=>{
-  if(!(await asegurarNumeroFicha())) return;
-  showOv('Preparando exportación…');
-  await new Promise(r=>setTimeout(r,150));
-  try{
+/* Arma el PDF de la ficha (todas las hojas) y lo devuelve. Lo usan
+   "Exportar PDF" y "PDF al taller". */
+async function construirPdfFicha(){
     const{jsPDF}=window.jspdf;
     const doc=new jsPDF({unit:'mm',format:'a4',compress:true});
     const A4W=210, A4H=297;
@@ -2647,6 +2654,14 @@ $('#btnPDF').onclick=async()=>{
     if(!numCentralOn()) confirmarOrden(S.orden);
     if(typeof registrarFicha==='function'){ registrarFicha(); chequearDuplicado(); }
     const fn=`FICHA_${S.orden}_${(S.inst||'RICCHARY').replace(/\s+/g,'_').toUpperCase()}.pdf`;
+    return {doc,fn};
+}
+$('#btnPDF').onclick=async()=>{
+  if(!(await asegurarNumeroFicha())) return;
+  showOv('Preparando exportación…');
+  await new Promise(r=>setTimeout(r,150));
+  try{
+    const {doc,fn}=await construirPdfFicha();
     if(window.showSaveFilePicker){
       try{
         const h=await window.showSaveFilePicker({
@@ -4068,6 +4083,63 @@ async function enviarFichaWhatsApp(){
                    :('Se descargó la imagen de la ficha · adjúntala en WhatsApp'+extra));
 }
 const _bWf=$('#btnWaFicha'); if(_bWf) _bWf.onclick=enviarFichaWhatsApp;
+
+/* ── Contacto del taller + PDF al taller ── */
+const TALLER_WA_KEY='rch_taller_wa', TALLER_NOM_KEY='rch_taller_nombre';
+function tallerWa(){ try{ return waTel(localStorage.getItem(TALLER_WA_KEY)||''); }catch(e){ return ''; } }
+function tallerNombre(){ try{ return (localStorage.getItem(TALLER_NOM_KEY)||'').trim(); }catch(e){ return ''; } }
+(function(){
+  const iW=$('#inputTallerWa'), iN=$('#inputTallerNombre'), h=$('#tallerWaHint');
+  const pinta=()=>{ if(!h) return; const t=tallerWa();
+    h.textContent = t ? ('Se enviará a +'+t) : 'Sin número: el botón te pedirá configurarlo.'; };
+  try{ if(iW) iW.value=localStorage.getItem(TALLER_WA_KEY)||''; if(iN) iN.value=localStorage.getItem(TALLER_NOM_KEY)||''; }catch(e){}
+  if(iW) iW.addEventListener('input',()=>{ try{ localStorage.setItem(TALLER_WA_KEY,iW.value.trim()); }catch(e){} pinta(); });
+  if(iN) iN.addEventListener('input',()=>{ try{ localStorage.setItem(TALLER_NOM_KEY,iN.value.trim()); }catch(e){} });
+  pinta();
+})();
+function tallerTexto(){
+  const nom=tallerNombre();
+  const l=[(nom?'Hola '+nom+', ':'Hola, ')+'te envío la ficha de producción en PDF.', ''];
+  l.push('*Ficha N° '+(S.orden||'—')+'* · RICCHARY');
+  if(S.pedido) l.push('Pedido N° '+S.pedido);
+  if(S.inst) l.push(S.inst);
+  if(S.titulo) l.push(S.titulo);
+  if(S.prendas) l.push('Prendas: '+S.prendas);
+  const p=parseFloat(String(S.confPrecio||'').replace(',','.')), n=parseFloat(S.prendas);
+  if(isFinite(p)&&p>0) l.push('Precio confección: $'+p.toFixed(2)+(isFinite(n)&&n>0?' · Total: $'+(n*p).toFixed(2):''));
+  if(S.entrega) l.push('Entrega: '+S.entrega);
+  return l.join('\n');
+}
+async function enviarPdfTaller(){
+  if(!(S.titulo||S.inst||S.pedido)){ showToast('La ficha está vacía: llénala antes de enviarla'); return; }
+  const tel=tallerWa();
+  if(!tel){ showToast('Falta el WhatsApp del taller: ponlo en Configuración'); abrirCfg(); setTimeout(()=>{ const i=$('#inputTallerWa'); if(i) i.focus(); },100); return; }
+  if(!(await asegurarNumeroFicha())) return;
+  const txt=tallerTexto();
+  showOv('Preparando PDF para el taller…');
+  await new Promise(r=>setTimeout(r,150));
+  let res=null;
+  try{ res=await construirPdfFicha(); }catch(e){ hideOv(); showToast('Error: '+e.message); return; }
+  hideOv();
+  const blob=res.doc.output('blob');
+  const file=new File([blob],res.fn,{type:'application/pdf'});
+  /* CELULAR: WhatsApp no deja que una app adjunte un archivo directo a un número;
+     se abre el menú Compartir con el PDF y el texto (eliges WhatsApp → el taller). */
+  if(ES_MOVIL && navigator.share){
+    let puede=false; try{ puede=navigator.canShare({files:[file]}); }catch(e){}
+    if(puede){
+      try{ await navigator.share({files:[file],title:res.fn,text:txt}); showToast('PDF compartido ✔'); }
+      catch(e){ if(e&&e.name!=='AbortError') showToast('No se pudo compartir: '+e.message); }
+      return;
+    }
+  }
+  /* PC (o celular sin Compartir): se descarga el PDF y se abre el chat del taller */
+  try{ const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=res.fn;
+    document.body.appendChild(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(a.href),8000); }catch(e){}
+  abrirWhatsApp(tel, txt);
+  showToast('PDF descargado · arrástralo al chat del taller en WhatsApp');
+}
+const _bPt=$('#btnPdfTaller'); if(_bPt) _bPt.onclick=enviarPdfTaller;
 
 /* Solo en celular: el cotizador interno va al final, después de la vista
    previa, para que lo primero sea llenar la ficha y verla. */
