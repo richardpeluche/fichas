@@ -1098,7 +1098,7 @@ body.es-movil #btnWaImg, body.es-movil .solo-pc{display:none!important}
       <button class="btn" id="btnJson" style="display:none" title="Guarda igual que el botón Guardar y además descarga la ficha como archivo .json">⬇ .json</button>
       <button class="btn" id="btnCargar" title="Abre una ficha desde un archivo .json" style="display:none">📂 Cargar</button>
       <button class="btn" id="btnHistorial" title="Fichas que ya exportaste">🗂️ Historial</button>
-      <button class="btn" id="btnWaFicha" title="Envía la ficha como imagen por WhatsApp. En el celular manda todas las hojas (ficha y anexos); en la PC copia la ficha para pegarla">📤 WhatsApp</button>
+      <button class="btn" id="btnWaFicha" title="Envía la ficha como IMAGEN al cliente por WhatsApp. En el celular manda todas las hojas (ficha y anexos); en la PC copia la ficha para pegarla">📤 Imagen al cliente</button>
       <button class="btn" id="btnPdfTaller" title="Arma el PDF de la ficha y lo envía por WhatsApp al taller (número en Inicio → ⚙ Configuración)">🧵 PDF al taller</button>
       <button class="btn primary" id="btnPDF">⬇&nbsp;Exportar PDF</button>
     </span>
@@ -1143,7 +1143,7 @@ body.es-movil #btnWaImg, body.es-movil .solo-pc{display:none!important}
       </button>
     </div>
     <div class="home-foot">
-      <div class="row"><span class="ver" id="verBadge">v4.19.0</span><span class="st" id="storageSt"></span></div>
+      <div class="row"><span class="ver" id="verBadge">v4.19.1</span><span class="st" id="storageSt"></span></div>
       <div class="row"><button class="btn" id="btnCfg" type="button">⚙ Configuración</button></div>
     </div>
   </div>
@@ -1630,7 +1630,18 @@ body.es-movil #btnWaImg, body.es-movil .solo-pc{display:none!important}
       <button class="btn" id="btnRespImport" type="button" title="Carga un respaldo (.json) en este equipo. Reconoce solo si el archivo trae configuración, fichas, o las dos cosas">📂 Restaurar fichas</button>      </div>
     </div>
 
+    <button class="btn primary" id="cfgSave" type="button" style="width:100%;margin-top:12px;padding:11px;font-size:14px">💾 Guardar configuración</button>
     <button class="hist-close" id="cfgClose">Cerrar</button>
+  </div>
+</div>
+
+<!-- MODAL COMPARTIR (celular) -->
+<div class="hist-ov" id="shareOv">
+  <div class="hist-modal" style="text-align:center">
+    <h3>Listo para enviar</h3>
+    <div class="sub" id="shareInfo"></div>
+    <button class="btn primary" id="shareGo" type="button" style="width:100%;padding:12px;font-size:15px">📤 Compartir</button>
+    <button class="hist-close" id="shareNo" type="button">Cancelar</button>
   </div>
 </div>
 
@@ -1670,7 +1681,7 @@ try{
   const _w=document.getElementById("pdfWorkerSrc");
   pdfjsLib.GlobalWorkerOptions.workerSrc=URL.createObjectURL(new Blob([_w.textContent],{type:"text/javascript"}));
 }catch(e){ pdfjsLib.GlobalWorkerOptions.workerSrc=""; }
-const APP_VERSION="4.19.0";
+const APP_VERSION="4.19.1";
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
 
 /* ══════════════════════════════════
@@ -2105,6 +2116,18 @@ refreshNumCentralUI();
 function abrirCfg(){ refreshNumCentralUI(); $('#cfgOv').classList.add('open'); }
 function cerrarCfg(){ $('#cfgOv').classList.remove('open'); }
 $('#btnCfg').onclick=abrirCfg; $('#cfgClose').onclick=cerrarCfg;
+/* Los campos ya se guardan al escribir; este botón vuelve a grabarlos todos
+   (por si el teclado del celular no disparó el evento) y lo confirma. */
+$('#cfgSave').onclick=()=>{
+  const v=id=>{ const e=document.getElementById(id); return e?e.value.trim():''; };
+  try{
+    localStorage.setItem(PED_URL_KEY, v('inputSyncUrl')); PEDIDOS_CACHE=null;
+    localStorage.setItem('rch_taller_wa', v('inputTallerWa'));
+    localStorage.setItem('rch_taller_nombre', v('inputTallerNombre'));
+    ['inputSyncUrl','inputZona','inputTallerWa','inputTallerNombre'].forEach(id=>{ const e=document.getElementById(id); if(e) e.dispatchEvent(new Event('input',{bubbles:true})); });
+    showToast('Configuración guardada ✔'); cerrarCfg();
+  }catch(e){ showToast('No se pudo guardar: '+e.message); }
+};
 $('#cfgOv').addEventListener('click',e=>{ if(e.target.id==='cfgOv') cerrarCfg(); });
 /* Al arrancar en modo central, la ficha empieza sin número (se asigna al guardar) */
 if(numCentralOn()){ S.orden=''; S.numAsignado=false; const _oi=$('#inputOrden'); if(_oi) _oi.value=''; }
@@ -3998,12 +4021,11 @@ async function compartirGuiaImg(){
     file=new File([blob],'GUIA_'+(E.pedido||E.ficha||'envio')+'.png',{type:'image/png'});
   }catch(err){ hideOv(); showToast('No se pudo generar la imagen: '+err.message); return; }
   hideOv();
-  try{
-    await navigator.share({files:[file],title:'Guía de envío RICCHARY',text:waMensajeEnvio()});
+  if((await compartirArchivos([file],'Guía de envío RICCHARY',waMensajeEnvio()))==='ok'){
     if(typeof registrarEnvio==='function') registrarEnvio();
     autoEntregaSiToca(E.pedido);
     showToast('Guía compartida ✔');
-  }catch(e){ if(e&&e.name!=='AbortError') showToast('No se pudo compartir: '+e.message); }
+  }
 }
 (function(){
   const b=$('#btnShareImg'); if(!b) return;
@@ -4059,8 +4081,8 @@ async function enviarFichaWhatsApp(){
     if(!files.length){ showToast('No se pudo generar la imagen de la ficha'); return; }
     let puede=false; try{ puede=navigator.canShare({files}); }catch(e){}
     if(!puede){ showToast('Este celular no permite compartir imágenes desde la app'); return; }
-    try{ await navigator.share({files,title:base,text:txt}); showToast('Ficha compartida ✔ ('+files.length+' '+(files.length>1?'hojas':'hoja')+')'); }
-    catch(e){ if(e&&e.name!=='AbortError') showToast('No se pudo compartir: '+e.message); }
+    const r=await compartirArchivos(files,base,txt);
+    if(r==='ok') showToast('Ficha compartida ✔ ('+files.length+' '+(files.length>1?'hojas':'hoja')+')');
     return;
   }
 
@@ -4083,6 +4105,32 @@ async function enviarFichaWhatsApp(){
                    :('Se descargó la imagen de la ficha · adjúntala en WhatsApp'+extra));
 }
 const _bWf=$('#btnWaFicha'); if(_bWf) _bWf.onclick=enviarFichaWhatsApp;
+
+/* ── Compartir archivos en el celular ──
+   Android solo permite abrir "Compartir" justo después de un toque. Si armar el
+   archivo tarda (PDF, varias hojas), ese permiso vence y sale "Must be handling a
+   user gesture". Entonces se muestra un botón "Compartir" y el toque nuevo lo abre. */
+function compartirArchivos(files,title,text){
+  return new Promise(resolve=>{
+    const fin=r=>resolve(r);
+    const intentar=async(desdeBoton)=>{
+      try{ await navigator.share({files,title,text}); fin('ok'); }
+      catch(e){
+        if(e&&e.name==='AbortError'){ fin('cancel'); return; }
+        if(!desdeBoton && e&&(e.name==='NotAllowedError'||/gesture/i.test(e.message||''))){ mostrar(); return; }
+        showToast('No se pudo compartir: '+(e&&e.message||e)); fin('error');
+      }
+    };
+    const ov=$('#shareOv'), go=$('#shareGo'), no=$('#shareNo');
+    function mostrar(){
+      $('#shareInfo').textContent=files.length+(files.length>1?' archivos listos':' archivo listo')+' · '+files.map(f=>f.name).join(', ');
+      ov.classList.add('open');
+      go.onclick=()=>{ ov.classList.remove('open'); intentar(true); };
+      no.onclick=()=>{ ov.classList.remove('open'); fin('cancel'); };
+    }
+    intentar(false);
+  });
+}
 
 /* ── Contacto del taller + PDF al taller ── */
 const TALLER_WA_KEY='rch_taller_wa', TALLER_NOM_KEY='rch_taller_nombre';
@@ -4128,8 +4176,7 @@ async function enviarPdfTaller(){
   if(ES_MOVIL && navigator.share){
     let puede=false; try{ puede=navigator.canShare({files:[file]}); }catch(e){}
     if(puede){
-      try{ await navigator.share({files:[file],title:res.fn,text:txt}); showToast('PDF compartido ✔'); }
-      catch(e){ if(e&&e.name!=='AbortError') showToast('No se pudo compartir: '+e.message); }
+      if((await compartirArchivos([file],res.fn,txt))==='ok') showToast('PDF compartido ✔');
       return;
     }
   }
