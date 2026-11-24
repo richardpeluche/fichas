@@ -970,6 +970,16 @@ body.es-movil #btnWaImg, body.es-movil .solo-pc{display:none!important}
 .hist-row .hmeta b{display:block;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .hist-row .hmeta span{font-size:10.5px;color:var(--muted)}
 .hist-empty{text-align:center;color:var(--muted);font-size:12.5px;padding:26px 10px}
+.cfg-sec{border:1px solid var(--border);border-radius:10px;padding:12px;margin-top:10px;text-align:left}
+.cfg-sec.ped-cfg{margin-top:10px}
+.cfg-t{font-size:12px;font-weight:900;color:var(--text);margin-bottom:3px}
+.cfg-r{font-size:11px;color:var(--muted);line-height:1.45;margin-bottom:9px}
+.cfg-btns{display:flex;gap:8px;flex-wrap:wrap}
+.cfg-btns .btn{font-size:12px;padding:7px 12px}
+.conf-card .conf-row{display:flex;justify-content:space-between;align-items:center;font-size:12.5px;padding:5px 0;border-bottom:1px solid var(--border)}
+.conf-card .conf-row b{font-size:14px}
+.conf-card .conf-tot b{color:var(--brand);font-size:17px}
+.a4-conf td.pf{font-size:13px;font-weight:800;color:var(--text);text-align:center;vertical-align:middle}
 .hist-close{margin-top:12px;width:100%;border:.5px solid var(--border);background:#fff;border-radius:8px;padding:9px;font-weight:800;font-size:13px;cursor:pointer}
 .hist-dup{background:#FEF3C7;border:1px solid #FCD34D;color:#92400e;font-size:11.5px;font-weight:700;line-height:1.4;padding:8px 10px;border-radius:8px;margin-top:8px;display:none}
 .hist-dup.on{display:block}
@@ -1085,7 +1095,7 @@ body.es-movil #btnWaImg, body.es-movil .solo-pc{display:none!important}
     <span id="fichaActions" style="display:contents">
       <button class="btn" id="btnNueva" title="Empieza una ficha en blanco (avanza el número)">🆕 Nueva</button>
       <button class="btn" id="btnGuardar" title="Guarda la ficha en este equipo (historial, con imágenes y anexos) y en el historial central. No descarga ningún archivo">💾 Guardar</button>
-      <button class="btn" id="btnJson" title="Guarda igual que el botón Guardar y además descarga la ficha como archivo .json">⬇ .json</button>
+      <button class="btn" id="btnJson" style="display:none" title="Guarda igual que el botón Guardar y además descarga la ficha como archivo .json">⬇ .json</button>
       <button class="btn" id="btnCargar" title="Abre una ficha desde un archivo .json" style="display:none">📂 Cargar</button>
       <button class="btn" id="btnHistorial" title="Fichas que ya exportaste">🗂️ Historial</button>
       <button class="btn" id="btnWaFicha" title="Envía la ficha como imagen por WhatsApp. En el celular manda todas las hojas (ficha y anexos); en la PC copia la ficha para pegarla">📤 WhatsApp</button>
@@ -1132,10 +1142,8 @@ body.es-movil #btnWaImg, body.es-movil .solo-pc{display:none!important}
       </button>
     </div>
     <div class="home-foot">
-      <div class="row"><span class="ver" id="verBadge">v4.16.3</span><span class="st" id="storageSt"></span></div>
-      <div class="row"><span>Respaldo de este equipo:</span>
-      <button class="btn" id="btnRespExport" type="button" title="Guarda TODO en un archivo: configuración (numeración, conexión, remitente, logo, tema, historial y envíos) y las fichas con sus imágenes y anexos">💾 Respaldar fichas</button>
-      <button class="btn" id="btnRespImport" type="button" title="Carga un respaldo (.json) en este equipo. Reconoce solo si el archivo trae configuración, fichas, o las dos cosas">📂 Restaurar fichas</button></div>
+      <div class="row"><span class="ver" id="verBadge">v4.18.0</span><span class="st" id="storageSt"></span></div>
+      <div class="row"><button class="btn" id="btnCfg" type="button">⚙ Configuración</button></div>
     </div>
   </div>
 </div>
@@ -1159,25 +1167,7 @@ body.es-movil #btnWaImg, body.es-movil .solo-pc{display:none!important}
         <div class="ped-status" id="pedStatus"></div>
         <div class="hist-dup" id="pedDup"></div>
         <button class="ped-prod" id="btnMarcarProd">🏭 Marcar este pedido «En producción» en mi sistema</button>
-        <details class="ped-cfg" id="pedCfg">
-          <summary>Conexión con mi sistema</summary>
-          <input type="text" id="inputSyncUrl" placeholder="URL de tu Apps Script (…/exec)" autocomplete="off">
-          <div class="hint">Pega la MISMA URL de sincronización que usas en tu app de cotizaciones (Configuración → sincronización). Se guarda solo en este equipo. Con la conexión activa, el <b>historial de fichas</b> y el <b>registro de envíos</b> se comparten con todos los equipos (pestañas Fichas y Envios de tu hoja de Google).</div>
-          <label style="display:flex;align-items:center;gap:7px;font-size:11.5px;font-weight:700;color:var(--text);margin:10px 0 3px;cursor:pointer">
-            <input type="checkbox" id="chkNumCentral" style="width:auto;margin:0"> Numeración de ficha central (varias zonas)
-          </label>
-          <div class="hint">El N° de ficha lo entrega tu sistema (mismo Apps Script), igual para todas las zonas — sin choques. El número se asigna al <b>Guardar</b> o <b>Exportar</b>.</div>
-          <div id="numCentralExtra" style="display:none;margin-top:7px">
-            <input type="text" id="inputZona" placeholder="Código de zona (para trabajar sin internet · ej. A)" autocomplete="off">
-            <div style="display:flex;gap:6px;align-items:center;margin-top:2px">
-              <input type="number" id="inputFijarNum" placeholder="Fijar contador central a…" style="flex:1;margin-bottom:0">
-              <button class="ped-btn" id="btnFijarNum" type="button" style="padding:7px 11px">Fijar</button>
-            </div>
-            <div class="hint">Fija el contador al número desde el que quieres continuar (ej. tu última ficha). Se hace una sola vez, desde una zona con internet.</div>
-            <div class="ped-status" id="fijarStatus"></div>
-          </div>
-          <button class="ped-clear" id="btnPedClear">Quitar pedido de esta ficha</button>
-        </details>
+        <button class="ped-clear" id="btnPedClear">Quitar pedido de esta ficha</button>
       </div>
 
       <div class="tpl-lbl">Plantilla rápida (opcional)</div>
@@ -1273,7 +1263,16 @@ body.es-movil #btnWaImg, body.es-movil .solo-pc{display:none!important}
     <!-- ══════════ COTIZADOR DE BORDADO ══════════
          Herramienta interna: NO se imprime en el PDF.
          Se guarda dentro de la ficha .json (S.cot).            -->
-    <div class="card cot-card" id="cardCotizador">
+    <div class="card conf-card" id="cardConfeccion">
+      <div class="section-title">Control de confección</div>
+      <div class="conf-row"><span>Prendas (de la ficha)</span><b id="confPrendas">—</b></div>
+      <div class="form-group" style="margin-top:10px"><label>Precio unitario de confección ($)</label>
+        <input type="number" min="0" step="0.01" inputmode="decimal" data-k="confPrecio" id="inputConfPrecio" placeholder="Ej: 12.50"></div>
+      <div class="conf-row conf-tot"><span>Total</span><b id="confTotal">—</b></div>
+      <p class="hint" style="font-size:11px;color:var(--muted);margin-top:8px">Sale en la hoja impresa con espacios para anotar a mano los abonos, sus fechas y el saldo.</p>
+    </div>
+
+    <div class="card cot-card" id="cardCotizador" style="display:none">
       <div class="cot-title">Cotizador de bordado <span class="cot-badge">interno</span></div>
       <p class="cot-nota">Solo servicio de bordado · no se imprime en el PDF</p>
 
@@ -1387,8 +1386,8 @@ body.es-movil #btnWaImg, body.es-movil .solo-pc{display:none!important}
 
       <div class="a4-conf">
         <div class="ch">Control de confección</div>
-        <table><tr><th>Precio c/u</th><th>Total</th><th>Abono · fecha</th><th>Abono · fecha</th><th>Abono · fecha</th><th>Saldo</th></tr>
-        <tr><td></td><td></td><td></td><td></td><td></td><td></td></tr></table>
+        <table><tr><th>Prendas</th><th>Precio c/u</th><th>Total</th><th>Abono · fecha</th><th>Abono · fecha</th><th>Abono · fecha</th><th>Saldo</th></tr>
+        <tr><td class="pf" id="vConfPrendas"></td><td class="pf" id="vConfPrecio"></td><td class="pf" id="vConfTotal"></td><td></td><td></td><td></td><td></td></tr></table>
       </div>
 
       <div class="a4-footer">
@@ -1583,6 +1582,49 @@ body.es-movil #btnWaImg, body.es-movil .solo-pc{display:none!important}
   </div>
 </div>
 
+<!-- MODAL CONFIGURACIÓN -->
+<div class="hist-ov" id="cfgOv">
+  <div class="hist-modal cfg-modal">
+    <h3>⚙ Configuración</h3>
+    <div class="sub">Ajustes de este equipo. Se guardan solos al escribir.</div>
+
+    <div class="cfg-sec ped-cfg">
+      <div class="cfg-t">Conexión con mi sistema</div>
+      <div class="cfg-r">Une la app con tu hoja de Google: trae los pedidos de cotizaciones, comparte el historial de fichas y envíos entre PC y celular, y sube imágenes y anexos a tu Drive. Sin esto, cada equipo solo ve lo suyo.</div>
+          <input type="text" id="inputSyncUrl" placeholder="URL de tu Apps Script (…/exec)" autocomplete="off">
+          <div class="hint">Pega la MISMA URL de sincronización que usas en tu app de cotizaciones (Configuración → sincronización). Se guarda solo en este equipo. Con la conexión activa, el <b>historial de fichas</b> y el <b>registro de envíos</b> se comparten con todos los equipos (pestañas Fichas y Envios de tu hoja de Google).</div>
+    </div>
+
+    <div class="cfg-sec ped-cfg">
+      <div class="cfg-t">Numeración de fichas</div>
+      <div class="cfg-r">Para que dos equipos no repitan el mismo N° de ficha.</div>
+          <label style="display:flex;align-items:center;gap:7px;font-size:11.5px;font-weight:700;color:var(--text);margin:10px 0 3px;cursor:pointer">
+            <input type="checkbox" id="chkNumCentral" style="width:auto;margin:0"> Numeración de ficha central (varias zonas)
+          </label>
+          <div class="hint">El N° de ficha lo entrega tu sistema (mismo Apps Script), igual para todas las zonas — sin choques. El número se asigna al <b>Guardar</b> o <b>Exportar</b>.</div>
+          <div id="numCentralExtra" style="display:none;margin-top:7px">
+            <input type="text" id="inputZona" placeholder="Código de zona (para trabajar sin internet · ej. A)" autocomplete="off">
+            <div style="display:flex;gap:6px;align-items:center;margin-top:2px">
+              <input type="number" id="inputFijarNum" placeholder="Fijar contador central a…" style="flex:1;margin-bottom:0">
+              <button class="ped-btn" id="btnFijarNum" type="button" style="padding:7px 11px">Fijar</button>
+            </div>
+            <div class="hint">Fija el contador al número desde el que quieres continuar (ej. tu última ficha). Se hace una sola vez, desde una zona con internet.</div>
+            <div class="ped-status" id="fijarStatus"></div>
+          </div>
+    </div>
+
+    <div class="cfg-sec">
+      <div class="cfg-t">Respaldo</div>
+      <div class="cfg-r"><b>Respaldar</b> descarga UN archivo con todo: configuración, historial y todas las fichas con sus imágenes y anexos. <b>Restaurar</b> lo carga en otro equipo o después de borrar datos.</div>
+      <div class="cfg-btns">
+      <button class="btn" id="btnRespExport" type="button" title="Guarda TODO en un archivo: configuración (numeración, conexión, remitente, logo, tema, historial y envíos) y las fichas con sus imágenes y anexos">💾 Respaldar fichas</button>
+      <button class="btn" id="btnRespImport" type="button" title="Carga un respaldo (.json) en este equipo. Reconoce solo si el archivo trae configuración, fichas, o las dos cosas">📂 Restaurar fichas</button>      </div>
+    </div>
+
+    <button class="hist-close" id="cfgClose">Cerrar</button>
+  </div>
+</div>
+
 <!-- MODAL HISTORIAL DE FICHAS -->
 <div class="hist-ov" id="histOv">
   <div class="hist-modal">
@@ -1619,7 +1661,7 @@ try{
   const _w=document.getElementById("pdfWorkerSrc");
   pdfjsLib.GlobalWorkerOptions.workerSrc=URL.createObjectURL(new Blob([_w.textContent],{type:"text/javascript"}));
 }catch(e){ pdfjsLib.GlobalWorkerOptions.workerSrc=""; }
-const APP_VERSION="4.16.3";
+const APP_VERSION="4.18.0";
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
 
 /* ══════════════════════════════════
@@ -1796,6 +1838,22 @@ $$('.tc').forEach(btn=>{
 $$('[data-k]').forEach(inp=>{
   inp.addEventListener('input',()=>{ S[inp.dataset.k]=inp.value; render(); });
 });
+/* Control de confección: prendas de la ficha × precio unitario */
+function confRender(){
+  const n=parseFloat(S.prendas), p=parseFloat(String(S.confPrecio==null?'':S.confPrecio).replace(',','.'));
+  const okN=isFinite(n)&&n>0, okP=isFinite(p)&&p>0;
+  const $m=v=>'$'+v.toFixed(2);
+  const set=(id,t)=>{ const e=document.getElementById(id); if(e) e.textContent=t; };
+  set('confPrendas', okN?String(n):'—');
+  set('confTotal',   okN&&okP?$m(n*p):'—');
+  set('vConfPrendas',okN?String(n):'');
+  set('vConfPrecio', okP?$m(p):'');
+  set('vConfTotal',  okN&&okP?$m(n*p):'');
+  const ip=document.getElementById('inputConfPrecio');
+  if(ip && document.activeElement!==ip) ip.value=(S.confPrecio==null?'':S.confPrecio);
+}
+const _renderSinConf=render;
+render=function(){ const r=_renderSinConf.apply(this,arguments); try{confRender();}catch(e){} return r; };
 /* sincronizar orden al inicio */
 const oi=$('#inputOrden'); if(oi) oi.value=S.orden;
 
@@ -1856,8 +1914,8 @@ async function verificarPedido(){
   const num=($('#inputPedido').value||'').trim();
   if(!num){ pedMsg('Escribe un N° de pedido para verificar.','err'); return; }
   if(!getSyncUrl()){
-    pedMsg('Falta la URL de tu sistema. Ábrela en <b>⚙ Conexión con mi sistema</b> aquí abajo y pega tu URL de Apps Script.','err');
-    const c=$('#pedCfg'); if(c) c.open=true;
+    pedMsg('Falta la URL de tu sistema. Pégala en <b>Inicio → ⚙ Configuración → Conexión con mi sistema</b>.','err');
+    if(typeof abrirCfg==='function') abrirCfg();
     return;
   }
   pedMsg('⏳ Consultando tu sistema de cotizaciones…','info');
@@ -1973,7 +2031,7 @@ async function _asegurarNumeroBase(){
     showToast('Sin conexión: N° provisional '+S.orden+' — reconcilia al tener internet');
     return true;
   }
-  alert('No se pudo obtener el N° de ficha central (sin internet).\n\n• Reintenta con conexión, o\n• Configura un "Código de zona" en la ficha (⚙ Conexión con mi sistema) para trabajar sin internet.');
+  alert('No se pudo obtener el N° de ficha central (sin internet).\n\n• Reintenta con conexión, o\n• Configura un "Código de zona" en Inicio → ⚙ Configuración para trabajar sin internet.');
   return false;
 }
 
@@ -2035,7 +2093,10 @@ const _bfn=$('#btnFijarNum'); if(_bfn) _bfn.onclick=async()=>{
 };
 refreshNumCentralUI();
 /* Al abrir la config, refrescar el estado del modo central */
-const _pedCfg=$('#pedCfg'); if(_pedCfg) _pedCfg.addEventListener('toggle',()=>{ if(_pedCfg.open) refreshNumCentralUI(); });
+function abrirCfg(){ refreshNumCentralUI(); $('#cfgOv').classList.add('open'); }
+function cerrarCfg(){ $('#cfgOv').classList.remove('open'); }
+$('#btnCfg').onclick=abrirCfg; $('#cfgClose').onclick=cerrarCfg;
+$('#cfgOv').addEventListener('click',e=>{ if(e.target.id==='cfgOv') cerrarCfg(); });
 /* Al arrancar en modo central, la ficha empieza sin número (se asigna al guardar) */
 if(numCentralOn()){ S.orden=''; S.numAsignado=false; const _oi=$('#inputOrden'); if(_oi) _oi.value=''; }
 
@@ -2633,7 +2694,7 @@ $('#fileProyecto').onchange=async function(){
   if(!this.files[0]) return;
   try{
     const d=JSON.parse(await this.files[0].text());
-    if(d.S) Object.assign(S,d.S);
+    if(d.S) Object.assign(S,{confPrecio:''},d.S);
     /* fichas viejas no traen cotizador: se rellena con los valores por defecto */
     S.cot=Object.assign({cant:24,punt:8000,pos:1,dig:1,desc:0,extra:0},(d.S&&d.S.cot)||{});
     /* fichas guardadas antes de esta versión: respetar su nombre de color (modo manual) */
@@ -2700,7 +2761,7 @@ function fichaEnBlanco(silencioso){
     material:'', tecnica:'', operador:'', prendas:'',
     colorNombre:'', colorNombreAuto:true,
     forroLabel:'Diseño forro interno', forroLleva:true,
-    anexoTitulo:'', colors:[], img1:null, img2:null,
+    anexoTitulo:'', colors:[], img1:null, img2:null, confPrecio:'',
     cot:{cant:24,punt:8000,pos:1,dig:1,desc:0,extra:0}
   });
   anexos=[]; seq=0;
@@ -2777,7 +2838,7 @@ async function abrirFichaHist(ficha){
     }catch(e){}
     hideOv();
   }
-  Object.assign(S,conImg?full.S:rec.data.S);
+  Object.assign(S,{confPrecio:''},conImg?full.S:rec.data.S);
   S.numAsignado = !!S.orden;
   S._abiertaDe = String(ficha);
   if(conImg){ anexos=(full.anexos||[]).slice(); seq=Math.max(0,...anexos.map(a=>a.id||0)); }
@@ -2854,7 +2915,7 @@ function autoguardar(){
 function restaurarBorrador(){
   let d; try{ d=JSON.parse(localStorage.getItem(DRAFT_KEY)); }catch(e){ return; }
   if(!d||!d.S){ showToast('No hay borrador para recuperar'); return; }
-  Object.assign(S,d.S);
+  Object.assign(S,{confPrecio:''},d.S);
   S.cot=Object.assign({cant:24,punt:8000,pos:1,dig:1,desc:0,extra:0},d.S.cot||{});
   if(d.anexos){ anexos=d.anexos; seq=Math.max(0,...anexos.map(a=>a.id||0)); } else { anexos=[]; seq=0; }
   refrescarInputs(); setForro(S.forroLleva!==false);
@@ -2982,7 +3043,7 @@ async function verificarPedidoEnvio(){
   const setSt=(t,c)=>{ if(st){ st.className='ped-status on '+(c||'info'); st.innerHTML=t; } };
   const num=String(E.pedido||'').trim();
   if(!num){ setSt('Escribe un N° de pedido.','err'); return; }
-  if(!getSyncUrl()){ setSt('Falta la URL de tu sistema. Configúrala en la <b>Ficha → ⚙ Conexión con mi sistema</b> (se comparte aquí).','err'); return; }
+  if(!getSyncUrl()){ setSt('Falta la URL de tu sistema. Pégala en <b>Inicio → ⚙ Configuración</b>.','err'); return; }
   setSt('⏳ Consultando tu sistema…','info');
   let data; try{ data=await fetchPedidos(); }
   catch(e){ setSt('❌ No se pudo conectar. Revisa tu URL / conexión.','err'); return; }
